@@ -276,12 +276,3 @@ External Prompt Protocol exists to make that premise technically and cryptograph
 
 ---
 
-If you want, next we can:
-
-write the EPP Abstract in RFC style
-
-define EPP Envelope v1 formally
-
-write a Quickstart that hackers can run in 5 minutes
-
-or draft a “Comparison to MCP / OAuth / Webhooks” section
