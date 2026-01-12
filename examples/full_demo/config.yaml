@@ -1,0 +1,34 @@
+# EPP Inbox Server Configuration
+#
+# This configures how your inbox receives and processes envelopes.
+
+inbox:
+  # Network settings
+  host: "0.0.0.0"
+  port: 8000
+
+  # Data storage location
+  data_dir: "./data"
+
+# Cryptographic keys for this inbox
+keys:
+  private_key_path: "./keys/inbox.key"
+  public_key_path: "./keys/inbox.pub"
+
+# Trust and policy storage
+storage:
+  trust_registry: "./data/trust_registry.json"
+  nonce_registry: "./data/nonce_registry.json"
+
+# What happens when an envelope is accepted
+executor:
+  # Options: noop, file_queue, logger, command
+  type: file_queue
+
+  # For file_queue: where to write accepted envelopes
+  queue_dir: "./data/queue"
+
+# Logging
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
