@@ -1,4 +1,8 @@
-External Prompt Protocol (EPP)
+# External Prompt Protocol (EPP)
+
+[![Tests](https://github.com/elliptic1/external-prompt-protocol/actions/workflows/test.yml/badge.svg)](https://github.com/elliptic1/external-prompt-protocol/actions)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 External Prompt Protocol (EPP) is an open, model-agnostic protocol that allows third parties to deliver authorized, cryptographically verifiable prompts and context into a user-owned AI system.
 
@@ -54,9 +58,9 @@ Explicitly consent-based
 
 Model-agnostic
 
-Transport-agnostic (HTTP recommended, not required)
+Transport-agnostic (HTTP, Solana blockchain, or custom)
 
-Compatible with local models, cloud APIs, and agent frameworks
+Compatible with local models, cloud APIs, wearables, and agent frameworks
 
 
 EPP is not:
@@ -208,6 +212,8 @@ A CLI tool (eppctl) for key management and message sending
 
 Pluggable executors (file queue, command execution, no-op)
 
+Multiple transports (HTTP, Solana blockchain)
+
 Tests and CI
 
 
@@ -249,15 +255,60 @@ These may be explored in future extensions.
 
 ---
 
-Getting Started
+## Installation
+
+```bash
+pip install external-prompt-protocol
+```
+
+Or from source:
+
+```bash
+git clone https://github.com/elliptic1/external-prompt-protocol.git
+cd external-prompt-protocol
+pip install -e ".[dev]"
+```
+
+---
+
+## Quick Example
+
+```python
+from epp.crypto.keys import KeyPair
+from epp.crypto.signing import sign_envelope, generate_nonce
+from epp.models import Payload
+from datetime import datetime, timedelta
+from uuid import uuid4
+
+# Generate keys for sender and recipient
+sender = KeyPair.generate()
+recipient = KeyPair.generate()
+
+# Create and sign an envelope
+signature = sign_envelope(
+    sender,
+    version="1",
+    envelope_id=str(uuid4()),
+    sender=sender.public_key_hex(),
+    recipient=recipient.public_key_hex(),
+    timestamp=datetime.utcnow().isoformat() + "Z",
+    expires_at=(datetime.utcnow() + timedelta(minutes=15)).isoformat() + "Z",
+    nonce=generate_nonce(),
+    scope="notifications",
+    payload={"prompt": "Hello from EPP!", "context": {}, "metadata": {}}
+)
+```
+
+---
+
+## Getting Started
 
 See:
 
-docs/spec.md — Protocol specification
-
-docs/threat-model.md — Security considerations
-
-README-quickstart.md — Reference implementation usage (if included)
+- [docs/spec.md](docs/spec.md) — Protocol specification
+- [docs/threat-model.md](docs/threat-model.md) — Security considerations
+- [docs/quickstart.md](docs/quickstart.md) — HTTP inbox setup
+- [docs/solana-transport.md](docs/solana-transport.md) — Blockchain transport (no server required)
 
 
 
