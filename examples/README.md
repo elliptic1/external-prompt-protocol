@@ -28,6 +28,27 @@ python 5_app_store_sends.py
 python 6_check_queue.py
 ```
 
+### [qr_code_solana/](qr_code_solana/)
+
+**QR code consent + blockchain polling**. Vendor displays QR code at their venue, customer scans to grant trust, vendor posts to Solana, customer's AI polls later.
+
+Demonstrates:
+- QR code generation for trust invitations
+- Customer scanning and adding vendor to trust registry
+- Signed envelope creation and (simulated) blockchain posting
+- Polling, verification, and queueing on customer's device
+
+Best for: museums, retail stores, venues - anywhere you want serverless prompt delivery with explicit consent.
+
+```bash
+cd qr_code_solana
+pip install qrcode[pil]           # For QR code generation
+python 1_vendor_setup.py          # Generate keys + QR code
+python 2_customer_scans.py        # Scan QR, add to registry
+python 3_vendor_sends.py          # Create and "send" envelope
+python 4_customer_polls.py        # Poll, verify, queue
+```
+
 ### [solana_example.py](solana_example.py)
 
 **Blockchain-based transport** using Solana. No server required - senders post envelopes to the blockchain and recipients poll for them.
