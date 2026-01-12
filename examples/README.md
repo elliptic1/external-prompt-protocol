@@ -4,20 +4,20 @@ This directory contains working examples demonstrating the External Prompt Proto
 
 ## Examples
 
-### [quickstart/](quickstart/)
+### [http_inbox_server/](http_inbox_server/)
 
-**Complete end-to-end demonstration** of EPP with:
-- Key generation for multiple parties
-- Trust registry configuration
-- Running an inbox server
-- Sending prompts from a coffee shop
-- Sending app store rejection notices
-- Viewing the queue
+**Run your own inbox server** that receives prompts via HTTP POST. Demonstrates:
+- Key generation for inbox and multiple senders
+- Trust registry with per-sender policies
+- FastAPI inbox server with full verification pipeline
+- Coffee shop sending promotional prompts
+- App store sending rejection notices
+- Queue viewer for accepted envelopes
 
-This is the best place to start. Follow the numbered scripts in order.
+Best for: always-on servers, home infrastructure, cloud deployments.
 
 ```bash
-cd quickstart
+cd http_inbox_server
 python 1_setup.py           # Generate keys
 python 2_configure_inbox.py  # Set up trust
 python 3_run_inbox.py        # Start server (keep running)
@@ -30,9 +30,9 @@ python 6_check_queue.py
 
 ### [solana_example.py](solana_example.py)
 
-Demonstrates **blockchain-based transport** using Solana. No server required - envelopes are posted to the blockchain and recipients poll for them.
+**Blockchain-based transport** using Solana. No server required - senders post envelopes to the blockchain and recipients poll for them.
 
-Best for: wearables, IoT devices, offline-first scenarios.
+Best for: wearables, mobile devices, intermittent connectivity, no-server scenarios.
 
 ```bash
 # Requires: pip install external-prompt-protocol[solana]
