@@ -4,7 +4,7 @@ This directory contains working examples demonstrating the External Prompt Proto
 
 ## Examples
 
-### [full_demo/](full_demo/)
+### [quickstart/](quickstart/)
 
 **Complete end-to-end demonstration** of EPP with:
 - Key generation for multiple parties
@@ -17,7 +17,7 @@ This directory contains working examples demonstrating the External Prompt Proto
 This is the best place to start. Follow the numbered scripts in order.
 
 ```bash
-cd full_demo
+cd quickstart
 python 1_setup.py           # Generate keys
 python 2_configure_inbox.py  # Set up trust
 python 3_run_inbox.py        # Start server (keep running)
