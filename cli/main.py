@@ -10,7 +10,6 @@ from uuid import uuid4
 
 import click
 import httpx
-import yaml
 
 from epp.crypto.keys import KeyPair, PublicKey
 from epp.crypto.signing import generate_nonce, sign_envelope
@@ -58,7 +57,7 @@ def generate(output: str, password: bool) -> None:
 
     key_pair.save_to_files(private_path, public_path, password=pwd)
 
-    click.echo(f"✓ Generated new key pair")
+    click.echo("✓ Generated new key pair")
     click.echo(f"  Private key: {private_path}")
     click.echo(f"  Public key:  {public_path}")
     click.echo(f"\nPublic key (hex): {key_pair.public_key_hex()}")
@@ -296,7 +295,7 @@ def create(
         envelope_dict["delegation"] = delegation_dict
 
     # Validate envelope
-    envelope_obj = Envelope(**envelope_dict)
+    Envelope(**envelope_dict)
 
     # Output
     envelope_json = json.dumps(envelope_dict, indent=2)
@@ -345,7 +344,7 @@ def send(envelope_file: str, inbox_url: str, timeout: int) -> None:
         receipt = response.json()
 
         if response.status_code == 200:
-            click.echo(f"✓ Envelope accepted")
+            click.echo("✓ Envelope accepted")
             click.echo(f"  Receipt ID: {receipt.get('receipt_id')}")
             click.echo(f"  Executor: {receipt.get('executor')}")
         else:

@@ -5,7 +5,6 @@ Command executor that runs a shell command with the prompt as input.
 import logging
 import subprocess
 import shlex
-from typing import Optional
 
 from ..models import Envelope
 from .base import ExecutionResult, Executor

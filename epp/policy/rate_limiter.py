@@ -4,7 +4,7 @@ Rate limiting for EPP envelopes.
 
 import time
 from collections import defaultdict, deque
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 
 class RateLimiter:
@@ -22,8 +22,8 @@ class RateLimiter:
     def check_and_record(
         self,
         sender_key: str,
-        max_per_hour: int | None,
-        max_per_day: int | None,
+        max_per_hour: Optional[int],
+        max_per_day: Optional[int],
     ) -> Tuple[bool, str]:
         """
         Check if sender has exceeded rate limits and record this request.

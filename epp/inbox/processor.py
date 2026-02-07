@@ -4,7 +4,6 @@ Core inbox envelope processing logic.
 
 import logging
 from datetime import datetime, timezone
-from typing import Tuple
 from uuid import uuid4
 
 from pydantic import ValidationError

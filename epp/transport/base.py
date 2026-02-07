@@ -1,7 +1,7 @@
 """Base transport interface for EPP envelope delivery."""
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from epp.models import Envelope
 
@@ -24,7 +24,9 @@ class Transport(ABC):
         pass
 
     @abstractmethod
-    async def receive(self, recipient_pubkey: str, since: str | None = None) -> AsyncIterator[Envelope]:
+    async def receive(
+        self, recipient_pubkey: str, since: Optional[str] = None
+    ) -> AsyncIterator[Envelope]:
         """
         Receive envelopes addressed to a recipient.
 

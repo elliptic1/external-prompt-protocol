@@ -15,8 +15,7 @@ Requirements:
 
 import base64
 import json
-from datetime import datetime
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from .base import Transport
 from epp.models import Envelope
@@ -39,7 +38,7 @@ class SolanaTransport(Transport):
     def __init__(
         self,
         rpc_url: str = "https://api.mainnet-beta.solana.com",
-        keypair_path: str | None = None,
+        keypair_path: Optional[str] = None,
     ):
         """
         Initialize Solana transport.
@@ -58,6 +57,7 @@ class SolanaTransport(Transport):
         if self._client is None:
             try:
                 from solana.rpc.async_api import AsyncClient
+
                 self._client = AsyncClient(self.rpc_url)
             except ImportError:
                 raise ImportError(
@@ -73,7 +73,8 @@ class SolanaTransport(Transport):
                 raise ValueError("keypair_path required for sending")
             try:
                 from solders.keypair import Keypair
-                with open(self.keypair_path, 'r') as f:
+
+                with open(self.keypair_path, "r") as f:
                     secret = json.load(f)
                 self._keypair = Keypair.from_bytes(bytes(secret))
             except ImportError:
@@ -95,14 +96,17 @@ class SolanaTransport(Transport):
         envelope_json = envelope.model_dump_json()
         envelope_b64 = base64.b64encode(envelope_json.encode()).decode()
 
-        memo = json.dumps({
-            "epp": "1",
-            "env": envelope_b64,
-        }, separators=(",", ":"))
+        memo = json.dumps(
+            {
+                "epp": "1",
+                "env": envelope_b64,
+            },
+            separators=(",", ":"),
+        )
 
         return memo
 
-    def _memo_to_envelope(self, memo: str) -> Envelope | None:
+    def _memo_to_envelope(self, memo: str) -> Optional[Envelope]:
         """
         Parse Solana memo back to EPP envelope.
 
@@ -124,9 +128,7 @@ class SolanaTransport(Transport):
             # Pointer to external storage (Arweave, IPFS)
             if "loc" in data:
                 # TODO: Fetch from external storage
-                raise NotImplementedError(
-                    f"External storage not yet implemented: {data['loc']}"
-                )
+                raise NotImplementedError(f"External storage not yet implemented: {data['loc']}")
 
             return None
         except Exception:
@@ -145,8 +147,6 @@ class SolanaTransport(Transport):
             Solana transaction signature
         """
         try:
-            from solana.rpc.commitment import Confirmed
-            from solana.transaction import Transaction
             from solders.instruction import Instruction, AccountMeta
             from solders.pubkey import Pubkey
             from solders.message import Message
@@ -184,6 +184,7 @@ class SolanaTransport(Transport):
         )
 
         from solders.transaction import Transaction as SoldersTransaction
+
         tx = SoldersTransaction.new_unsigned(message)
         tx.sign([keypair], recent_blockhash.value.blockhash)
 
@@ -193,7 +194,7 @@ class SolanaTransport(Transport):
     async def receive(
         self,
         recipient_pubkey: str,
-        since: str | None = None,
+        since: Optional[str] = None,
         limit: int = 100,
     ) -> AsyncIterator[Envelope]:
         """
@@ -248,6 +249,7 @@ class SolanaTransport(Transport):
         Both use Ed25519, so the raw bytes are compatible.
         """
         from solders.pubkey import Pubkey
+
         pubkey_bytes = bytes.fromhex(epp_pubkey_hex)
         return Pubkey(pubkey_bytes)
 
@@ -271,5 +273,6 @@ def epp_pubkey_to_solana_address(epp_pubkey_hex: str) -> str:
         Base58-encoded Solana address
     """
     from solders.pubkey import Pubkey
+
     pubkey_bytes = bytes.fromhex(epp_pubkey_hex)
     return str(Pubkey(pubkey_bytes))

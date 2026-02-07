@@ -1,7 +1,7 @@
 """HTTP transport - direct POST to inbox endpoint."""
 
 import httpx
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from .base import Transport
 from epp.models import Envelope
@@ -25,15 +25,14 @@ class HttpTransport(Transport):
             Receipt ID from the inbox
         """
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                recipient_address,
-                json=envelope.model_dump(mode="json")
-            )
+            response = await client.post(recipient_address, json=envelope.model_dump(mode="json"))
             response.raise_for_status()
             receipt = response.json()
             return receipt.get("receipt_id", response.headers.get("x-receipt-id", "unknown"))
 
-    async def receive(self, recipient_pubkey: str, since: str | None = None) -> AsyncIterator[Envelope]:
+    async def receive(
+        self, recipient_pubkey: str, since: Optional[str] = None
+    ) -> AsyncIterator[Envelope]:
         """
         HTTP transport is push-based, not pull-based.
         This method is not applicable for HTTP transport.

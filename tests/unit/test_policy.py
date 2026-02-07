@@ -2,8 +2,6 @@
 Tests for policy enforcement components.
 """
 
-import time
-from datetime import datetime
 
 import pytest
 

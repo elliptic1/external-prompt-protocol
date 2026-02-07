@@ -4,7 +4,7 @@ Nonce registry for replay attack prevention.
 
 import time
 from datetime import datetime
-from typing import Dict, Set
+from typing import Dict
 
 
 class NonceRegistry:

@@ -3,7 +3,7 @@ Base executor interface for EPP.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
@@ -16,7 +16,7 @@ class ExecutionResult(BaseModel):
     success: bool
     executor_name: str
     result_data: Dict[str, Any] = {}
-    error_message: str | None = None
+    error_message: Optional[str] = None
 
 
 class Executor(ABC):

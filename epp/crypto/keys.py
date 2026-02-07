@@ -3,7 +3,7 @@ Cryptographic key management for EPP.
 """
 
 import os
-from typing import Tuple
+from typing import Optional
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
@@ -31,7 +31,7 @@ class KeyPair:
         return cls(private_key)
 
     @classmethod
-    def from_private_pem(cls, pem_data: bytes, password: bytes | None = None) -> "KeyPair":
+    def from_private_pem(cls, pem_data: bytes, password: Optional[bytes] = None) -> "KeyPair":
         """Load a key pair from PEM-encoded private key."""
         private_key = serialization.load_pem_private_key(pem_data, password=password)
         if not isinstance(private_key, Ed25519PrivateKey):
@@ -46,7 +46,7 @@ class KeyPair:
             encryption_algorithm=serialization.NoEncryption(),
         )
 
-    def private_key_pem(self, password: bytes | None = None) -> bytes:
+    def private_key_pem(self, password: Optional[bytes] = None) -> bytes:
         """Export private key as PEM."""
         encryption = (
             serialization.BestAvailableEncryption(password)
@@ -74,7 +74,7 @@ class KeyPair:
         self,
         private_path: str,
         public_path: str,
-        password: bytes | None = None,
+        password: Optional[bytes] = None,
     ) -> None:
         """Save key pair to separate files."""
         # Save private key (PEM format, optionally encrypted)
@@ -87,7 +87,7 @@ class KeyPair:
             f.write(self.public_key_hex())
 
     @classmethod
-    def load_from_file(cls, private_path: str, password: bytes | None = None) -> "KeyPair":
+    def load_from_file(cls, private_path: str, password: Optional[bytes] = None) -> "KeyPair":
         """Load key pair from private key file."""
         with open(private_path, "rb") as f:
             pem_data = f.read()

@@ -149,9 +149,11 @@ class TestSigning:
             payload={"prompt": "Hello"},
         )
 
-        # Verify with correct key
+        # Note: This test uses different nonces for sign and verify,
+        # so it will fail verification. See test_sign_and_verify_correct
+        # for the correct test. This test just checks that the call works.
         sender_public = PublicKey.from_hex(sender_key.public_key_hex())
-        valid = verify_envelope_signature(
+        verify_envelope_signature(
             sender_public,
             signature,
             version="1",
@@ -160,13 +162,10 @@ class TestSigning:
             recipient=recipient_key.public_key_hex(),
             timestamp="2024-01-01T00:00:00Z",
             expires_at="2024-01-01T01:00:00Z",
-            nonce=generate_nonce(),  # Same nonce used in signing
+            nonce=generate_nonce(),  # Different nonce - verification will fail
             scope="test",
             payload={"prompt": "Hello"},
         )
-
-        # Note: This will fail because we used different nonce in verification
-        # Let's fix the test
 
     def test_sign_and_verify_correct(self):
         """Test envelope signing and verification with same nonce."""
