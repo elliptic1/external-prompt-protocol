@@ -117,6 +117,9 @@ That's it. You're now receiving cryptographically verified prompts.
 - **Replay Protection** — Nonce + expiration prevents replay attacks
 - **Trust Registry** — Explicit per-sender trust with scope restrictions
 - **Rate Limiting** — Per-sender hourly/daily limits
+- **Conversation Threading** — Multi-step exchanges linked by `conversation_id` with `in_reply_to` chaining
+- **Typed Payloads** — `payload_type` field enables semantic routing (e.g., `order-request`, `medical-record`)
+- **Delegation** — Act on behalf of another entity with cryptographic evidence
 - **Model Agnostic** — Works with any LLM (local, cloud, agent frameworks)
 
 ### Transport Options
@@ -144,6 +147,51 @@ pip install external-prompt-protocol[solana]
 
 ## Use Cases
 
+### Restaurant Ordering (AI-to-AI Commerce)
+
+Your AI orders dinner — no website, no app:
+
+```python
+# Customer's AI queries the menu
+sign_envelope(..., scope="menu-query", payload_type="menu-query",
+    conversation_id=conv_id, prompt="What's on the menu tonight?")
+
+# Restaurant's AI responds with menu
+sign_envelope(..., scope="menu", payload_type="menu-response",
+    conversation_id=conv_id, in_reply_to=query_id, prompt="Tonight's specials...")
+
+# Customer's AI places order
+sign_envelope(..., scope="order-request", payload_type="order-request",
+    conversation_id=conv_id, in_reply_to=menu_id, prompt="I'll have the truffle pizza")
+
+# Restaurant confirms
+sign_envelope(..., scope="order-confirmation", payload_type="order-confirmation",
+    conversation_id=conv_id, in_reply_to=order_id, prompt="Order confirmed! ETA 30min")
+```
+
+All four envelopes share a `conversation_id`. See [`examples/restaurant_order.py`](examples/restaurant_order.py).
+
+### Medical Network (Delegation + Trust Chains)
+
+Doctor sends results, forwards referrals on patient's behalf:
+
+```python
+# Doctor sends lab results to patient (starts conversation)
+sign_envelope(..., scope="lab-results", payload_type="medical-record",
+    conversation_id=conv_id, prompt="Your cholesterol is slightly elevated...")
+
+# Patient's AI forwards to spouse (same conversation)
+sign_envelope(..., scope="lab-results", conversation_id=conv_id,
+    in_reply_to=results_id, prompt="Sharing my lab results with you")
+
+# Doctor refers to cardiologist ON BEHALF OF patient
+sign_envelope(..., scope="referral", payload_type="referral",
+    delegation={"on_behalf_of": patient_pubkey, "authorization": "consent-form-123"},
+    prompt="Referring patient for cardiology consultation")
+```
+
+See [`examples/medical_network.py`](examples/medical_network.py).
+
 ### App Store Rejection Notice
 
 ```python
@@ -156,19 +204,6 @@ envelope = create_envelope(
 ```
 
 Developer's AI receives it, analyzes the issue, and suggests fixes.
-
-### Retail Product Support
-
-```python
-# After purchase, retailer sends product manual to your AI
-envelope = create_envelope(
-    scope="product-support",
-    prompt="Here's the setup guide for your new espresso machine.",
-    context={"product": "Breville BES870", "manual_url": "..."}
-)
-```
-
-Your AI now knows how to help you troubleshoot it.
 
 ### Wearable Notifications
 
@@ -197,11 +232,13 @@ await transport.send(envelope, customer_solana_address)
    Signs with    │  │ expires_at: 2025-01-12T09:15:00Z             │   │     Verifies
    private key   │  │ nonce: <random>                              │   │     signature
                  │  │ scope: "notifications"                       │   │          │
-                 │  │ payload: { prompt: "...", context: {...} }   │   │          ▼
-                 │  │ signature: <Ed25519 signature>               │   │     ┌──────────┐
-                 │  └─────────────────────────────────────────────┘   │     │ EXECUTOR │
-                 └─────────────────────────────────────────────────────┘     │ (Model)  │
-                                                                             └──────────┘
+                 │  │ payload: { prompt: "...", payload_type: ... } │   │          ▼
+                 │  │ conversation_id: <uuid>         (optional)   │   │     ┌──────────┐
+                 │  │ in_reply_to: <uuid>             (optional)   │   │     │ EXECUTOR │
+                 │  │ delegation: { on_behalf_of: …}  (optional)   │   │     │ (Model)  │
+                 │  │ signature: <Ed25519 signature>               │   │     │          │
+                 │  └─────────────────────────────────────────────┘   │     └──────────┘
+                 └─────────────────────────────────────────────────────┘
 ```
 
 1. **Sender** creates an envelope with prompt + context
@@ -262,8 +299,11 @@ eppctl trust remove <KEY>
 
 # Envelope operations
 eppctl envelope create --private-key sender.key --recipient <KEY> --scope notifications --prompt "Hello!"
+eppctl envelope create --private-key sender.key --recipient <KEY> --scope order \
+    --prompt "Place order" --new-conversation --payload-type order-request
+eppctl envelope create --private-key sender.key --recipient <KEY> --scope referral \
+    --prompt "Referral" --on-behalf-of <PATIENT_KEY> --conversation-id <UUID>
 eppctl envelope send envelope.json http://localhost:8000
-eppctl envelope verify envelope.json
 ```
 
 ---
@@ -290,7 +330,7 @@ EPP is **complementary** to MCP — use both together.
 | Stability | Experimental |
 | License | MIT |
 
-The protocol is intentionally minimal in v1 to encourage adoption. Future extensions may include payments, anonymity features, and more transport options.
+The protocol supports conversation threading, typed payloads, and delegation for multi-step AI-to-AI interactions. Future extensions may include payments, anonymity features, and more transport options.
 
 ---
 
