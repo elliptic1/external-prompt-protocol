@@ -244,7 +244,9 @@ def create(
     # Create envelope
     envelope_id = str(uuid4())
     timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=expires)).isoformat().replace("+00:00", "Z")
+    expires_at = (
+        (datetime.now(timezone.utc) + timedelta(minutes=expires)).isoformat().replace("+00:00", "Z")
+    )
     nonce = generate_nonce()
     sender_hex = key_pair.public_key_hex()
 

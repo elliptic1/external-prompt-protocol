@@ -2,7 +2,6 @@
 Tests for policy enforcement components.
 """
 
-
 import pytest
 
 from epp.policy.nonce_registry import NonceRegistry

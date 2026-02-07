@@ -189,7 +189,9 @@ class TestEnvelope:
         data = self.get_valid_envelope_data()
 
         # Future expiration
-        future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+        future = (
+            (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+        )
         data["expires_at"] = future
         envelope = Envelope(**data)
         assert envelope.is_expired() is False
@@ -197,7 +199,9 @@ class TestEnvelope:
         # Past expiration
         past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
         data["expires_at"] = past
-        data["timestamp"] = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+        data["timestamp"] = (
+            (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+        )
         envelope = Envelope(**data)
         assert envelope.is_expired() is True
 
