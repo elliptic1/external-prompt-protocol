@@ -2,7 +2,7 @@
 Tests for EPP data models.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -189,15 +189,15 @@ class TestEnvelope:
         data = self.get_valid_envelope_data()
 
         # Future expiration
-        future = (datetime.utcnow() + timedelta(hours=1)).isoformat() + "Z"
+        future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
         data["expires_at"] = future
         envelope = Envelope(**data)
         assert envelope.is_expired() is False
 
         # Past expiration
-        past = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
+        past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
         data["expires_at"] = past
-        data["timestamp"] = (datetime.utcnow() - timedelta(hours=2)).isoformat() + "Z"
+        data["timestamp"] = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
         envelope = Envelope(**data)
         assert envelope.is_expired() is True
 

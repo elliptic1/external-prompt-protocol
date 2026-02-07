@@ -3,7 +3,7 @@ Core inbox envelope processing logic.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Tuple
 from uuid import uuid4
 
@@ -65,7 +65,7 @@ class InboxProcessor:
         Returns:
             Receipt (success or error)
         """
-        received_at = datetime.utcnow().isoformat() + "Z"
+        received_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         envelope_id = envelope_data.get("envelope_id", "unknown")
 
         # Step 1: Parse and validate structure

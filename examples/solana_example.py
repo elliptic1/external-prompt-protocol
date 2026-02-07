@@ -16,7 +16,7 @@ Costs:
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from epp.crypto.keys import KeyPair
@@ -43,8 +43,8 @@ async def main():
     # === CREATE ENVELOPE ===
 
     envelope_id = str(uuid4())
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    expires_at = (datetime.utcnow() + timedelta(hours=24)).isoformat() + "Z"
+    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat().replace("+00:00", "Z")
     nonce = generate_nonce()
 
     payload = Payload(

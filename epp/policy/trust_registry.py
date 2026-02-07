@@ -4,7 +4,7 @@ Trust registry for managing trusted senders and their policies.
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -87,7 +87,7 @@ class TrustRegistry:
         entry = TrustEntry(
             public_key=public_key,
             name=name,
-            added_at=datetime.utcnow().isoformat() + "Z",
+            added_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             policy=policy or SenderPolicy(),
         )
 

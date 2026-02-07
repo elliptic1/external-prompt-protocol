@@ -4,7 +4,7 @@ Logger executor that writes envelope details to a log file.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..models import Envelope
@@ -33,7 +33,7 @@ class LoggerExecutor(Executor):
         """Log envelope details to file."""
         try:
             log_entry = {
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                 "envelope_id": envelope.envelope_id,
                 "sender": envelope.sender,
                 "scope": envelope.scope,

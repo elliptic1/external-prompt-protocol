@@ -5,7 +5,7 @@ File queue executor that writes envelopes to a directory for later processing.
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..models import Envelope
@@ -34,7 +34,7 @@ class FileQueueExecutor(Executor):
         """Write envelope to queue directory."""
         try:
             # Generate filename with timestamp and envelope ID
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             filename = f"{timestamp}_{envelope.envelope_id}.json"
             filepath = self.queue_dir / filename
 

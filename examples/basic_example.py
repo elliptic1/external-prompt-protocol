@@ -8,7 +8,7 @@ This example demonstrates:
 3. Sending it to an inbox (simulated)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from epp.crypto.keys import KeyPair
@@ -31,8 +31,8 @@ def main():
     # Step 2: Create envelope
     print("\n2. Creating envelope...")
     envelope_id = str(uuid4())
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    expires_at = (datetime.utcnow() + timedelta(minutes=15)).isoformat() + "Z"
+    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat().replace("+00:00", "Z")
     nonce = generate_nonce()
 
     payload = Payload(

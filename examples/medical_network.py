@@ -10,7 +10,7 @@ This example demonstrates:
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from epp.crypto.keys import KeyPair
@@ -32,8 +32,8 @@ def create_signed_envelope(
 ) -> dict:
     """Helper to create a signed envelope dict."""
     envelope_id = str(uuid4())
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    expires_at = (datetime.utcnow() + timedelta(minutes=15)).isoformat() + "Z"
+    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat().replace("+00:00", "Z")
     nonce = generate_nonce()
     sender_hex = sender_key.public_key_hex()
 

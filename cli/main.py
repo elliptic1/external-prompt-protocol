@@ -3,7 +3,7 @@ EPP CLI tool (eppctl) for key management and envelope operations.
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
@@ -244,8 +244,8 @@ def create(
 
     # Create envelope
     envelope_id = str(uuid4())
-    timestamp = datetime.utcnow().isoformat() + "Z"
-    expires_at = (datetime.utcnow() + timedelta(minutes=expires)).isoformat() + "Z"
+    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=expires)).isoformat().replace("+00:00", "Z")
     nonce = generate_nonce()
     sender_hex = key_pair.public_key_hex()
 
