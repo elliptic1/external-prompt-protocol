@@ -14,10 +14,12 @@ class Payload(BaseModel):
     """EPP envelope payload."""
 
     prompt: str = Field(..., min_length=1, description="The prompt text to be delivered")
-    context: Optional[Dict[str, Any]] = Field(
-        default=None, description="Structured context data"
-    )
+    context: Optional[Dict[str, Any]] = Field(default=None, description="Structured context data")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata")
+    payload_type: Optional[str] = Field(
+        default=None,
+        description="Type hint for payload schema (e.g., 'order-request', 'medical-record')",
+    )
 
     @field_validator("prompt")
     @classmethod
@@ -26,6 +28,33 @@ class Payload(BaseModel):
         if not v.strip():
             raise ValueError("Prompt cannot be empty or whitespace-only")
         return v
+
+    @field_validator("payload_type")
+    @classmethod
+    def validate_payload_type(cls, v: Optional[str]) -> Optional[str]:
+        """Validate payload_type contains only alphanumeric characters and hyphens."""
+        if v is not None and not re.match(r"^[a-zA-Z0-9\-]+$", v):
+            raise ValueError(
+                f"payload_type must contain only alphanumeric characters and hyphens: {v}"
+            )
+        return v
+
+
+class Delegation(BaseModel):
+    """Delegation info for acting on behalf of another entity."""
+
+    on_behalf_of: str = Field(..., description="Public key hex (64 chars) of the principal")
+    authorization: Optional[str] = Field(
+        default=None, description="Optional evidence (e.g., signed token, reference)"
+    )
+
+    @field_validator("on_behalf_of")
+    @classmethod
+    def validate_on_behalf_of(cls, v: str) -> str:
+        """Validate on_behalf_of is a 64-char hex public key."""
+        if not re.match(r"^[0-9a-fA-F]{64}$", v):
+            raise ValueError(f"on_behalf_of must be 64 hexadecimal characters (32 bytes): {v}")
+        return v.lower()
 
 
 class Envelope(BaseModel):
@@ -41,6 +70,16 @@ class Envelope(BaseModel):
     scope: str = Field(..., description="Scope identifier for policy matching")
     payload: Payload = Field(..., description="Envelope payload")
     signature: str = Field(..., description="Cryptographic signature (base64)")
+    conversation_id: Optional[str] = Field(
+        default=None, description="Conversation thread ID (UUID)"
+    )
+    in_reply_to: Optional[str] = Field(
+        default=None, description="envelope_id being replied to (UUID)"
+    )
+    delegation: Optional[Delegation] = Field(
+        default=None,
+        description="Delegation info for acting on behalf of another entity",
+    )
 
     @field_validator("envelope_id")
     @classmethod
@@ -52,14 +91,34 @@ class Envelope(BaseModel):
             raise ValueError(f"envelope_id must be a valid UUID: {v}")
         return v
 
+    @field_validator("conversation_id")
+    @classmethod
+    def validate_conversation_id(cls, v: Optional[str]) -> Optional[str]:
+        """Validate conversation_id is a valid UUID when present."""
+        if v is not None:
+            try:
+                UUID(v)
+            except ValueError:
+                raise ValueError(f"conversation_id must be a valid UUID: {v}")
+        return v
+
+    @field_validator("in_reply_to")
+    @classmethod
+    def validate_in_reply_to(cls, v: Optional[str]) -> Optional[str]:
+        """Validate in_reply_to is a valid UUID when present."""
+        if v is not None:
+            try:
+                UUID(v)
+            except ValueError:
+                raise ValueError(f"in_reply_to must be a valid UUID: {v}")
+        return v
+
     @field_validator("sender", "recipient")
     @classmethod
     def validate_public_key(cls, v: str) -> str:
         """Validate public key is hexadecimal."""
         if not re.match(r"^[0-9a-fA-F]{64}$", v):
-            raise ValueError(
-                f"Public key must be 64 hexadecimal characters (32 bytes): {v}"
-            )
+            raise ValueError(f"Public key must be 64 hexadecimal characters (32 bytes): {v}")
         return v.lower()
 
     @field_validator("timestamp", "expires_at")
@@ -77,9 +136,7 @@ class Envelope(BaseModel):
     def validate_scope(cls, v: str) -> str:
         """Validate scope contains only alphanumeric characters and hyphens."""
         if not re.match(r"^[a-zA-Z0-9\-]+$", v):
-            raise ValueError(
-                f"Scope must contain only alphanumeric characters and hyphens: {v}"
-            )
+            raise ValueError(f"Scope must contain only alphanumeric characters and hyphens: {v}")
         return v
 
     @field_validator("nonce")

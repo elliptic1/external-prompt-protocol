@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
-from epp.models import Envelope, ErrorDetail, ErrorReceipt, Payload, SuccessReceipt
+from epp.models import Delegation, Envelope, ErrorDetail, ErrorReceipt, Payload, SuccessReceipt
 
 
 class TestPayload:
@@ -39,6 +39,56 @@ class TestPayload:
         """Test that whitespace-only prompts are rejected."""
         with pytest.raises(ValidationError):
             Payload(prompt="   \n  \t  ")
+
+    def test_payload_type_valid(self):
+        """Test valid payload_type."""
+        payload = Payload(prompt="Test", payload_type="order-request")
+        assert payload.payload_type == "order-request"
+
+    def test_payload_type_none(self):
+        """Test payload_type defaults to None."""
+        payload = Payload(prompt="Test")
+        assert payload.payload_type is None
+
+    def test_payload_type_invalid_chars(self):
+        """Test payload_type with invalid characters is rejected."""
+        with pytest.raises(ValidationError):
+            Payload(prompt="Test", payload_type="invalid type!")
+
+    def test_payload_type_alphanumeric_hyphens(self):
+        """Test payload_type allows alphanumeric and hyphens."""
+        payload = Payload(prompt="Test", payload_type="medical-record-v2")
+        assert payload.payload_type == "medical-record-v2"
+
+
+class TestDelegation:
+    """Tests for Delegation model."""
+
+    def test_valid_delegation(self):
+        """Test creating valid delegation."""
+        delegation = Delegation(on_behalf_of="a" * 64)
+        assert delegation.on_behalf_of == "a" * 64
+        assert delegation.authorization is None
+
+    def test_delegation_with_authorization(self):
+        """Test delegation with authorization evidence."""
+        delegation = Delegation(on_behalf_of="b" * 64, authorization="signed-token-xyz")
+        assert delegation.authorization == "signed-token-xyz"
+
+    def test_invalid_public_key_format(self):
+        """Test delegation with invalid public key is rejected."""
+        with pytest.raises(ValidationError):
+            Delegation(on_behalf_of="not-a-valid-key")
+
+    def test_short_public_key(self):
+        """Test delegation with too-short public key is rejected."""
+        with pytest.raises(ValidationError):
+            Delegation(on_behalf_of="a" * 32)
+
+    def test_uppercase_normalized(self):
+        """Test that uppercase hex is normalized to lowercase."""
+        delegation = Delegation(on_behalf_of="A" * 64)
+        assert delegation.on_behalf_of == "a" * 64
 
 
 class TestEnvelope:
@@ -158,6 +208,59 @@ class TestEnvelope:
         size = envelope.size_bytes()
         assert size > 0
         assert isinstance(size, int)
+
+    def test_conversation_id_valid(self):
+        """Test valid conversation_id UUID."""
+        data = self.get_valid_envelope_data()
+        data["conversation_id"] = "550e8400-e29b-41d4-a716-446655440001"
+        envelope = Envelope(**data)
+        assert envelope.conversation_id == "550e8400-e29b-41d4-a716-446655440001"
+
+    def test_conversation_id_invalid(self):
+        """Test invalid conversation_id is rejected."""
+        data = self.get_valid_envelope_data()
+        data["conversation_id"] = "not-a-uuid"
+        with pytest.raises(ValidationError):
+            Envelope(**data)
+
+    def test_in_reply_to_valid(self):
+        """Test valid in_reply_to UUID."""
+        data = self.get_valid_envelope_data()
+        data["in_reply_to"] = "550e8400-e29b-41d4-a716-446655440002"
+        envelope = Envelope(**data)
+        assert envelope.in_reply_to == "550e8400-e29b-41d4-a716-446655440002"
+
+    def test_in_reply_to_invalid(self):
+        """Test invalid in_reply_to is rejected."""
+        data = self.get_valid_envelope_data()
+        data["in_reply_to"] = "not-a-uuid"
+        with pytest.raises(ValidationError):
+            Envelope(**data)
+
+    def test_delegation_nested(self):
+        """Test delegation as nested object on envelope."""
+        data = self.get_valid_envelope_data()
+        data["delegation"] = {"on_behalf_of": "c" * 64}
+        envelope = Envelope(**data)
+        assert envelope.delegation is not None
+        assert envelope.delegation.on_behalf_of == "c" * 64
+
+    def test_new_fields_default_none(self):
+        """Test that all new fields default to None (backward compatibility)."""
+        data = self.get_valid_envelope_data()
+        envelope = Envelope(**data)
+        assert envelope.conversation_id is None
+        assert envelope.in_reply_to is None
+        assert envelope.delegation is None
+
+    def test_backward_compatibility(self):
+        """Test envelope without new fields still works (existing format)."""
+        data = self.get_valid_envelope_data()
+        # Explicitly no conversation_id, in_reply_to, or delegation
+        envelope = Envelope(**data)
+        assert envelope.version == "1"
+        assert envelope.scope == "test-scope"
+        assert envelope.conversation_id is None
 
 
 class TestReceipts:

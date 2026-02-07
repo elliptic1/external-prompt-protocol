@@ -279,3 +279,165 @@ class TestSigning:
         )
 
         assert valid is False
+
+    def test_canonical_payload_with_conversation(self):
+        """Test canonical payload includes conversation_id."""
+        payload = create_canonical_payload(
+            version="1",
+            envelope_id="test-id",
+            sender="sender-key",
+            recipient="recipient-key",
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce="test-nonce",
+            scope="test",
+            payload={"prompt": "Hello"},
+            conversation_id="conv-123",
+        )
+
+        payload_str = payload.decode("utf-8")
+        assert "conv-123" in payload_str
+
+    def test_canonical_payload_without_optional_fields(self):
+        """Test canonical payload uses empty strings for None values."""
+        payload_with = create_canonical_payload(
+            version="1",
+            envelope_id="test-id",
+            sender="sender-key",
+            recipient="recipient-key",
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce="test-nonce",
+            scope="test",
+            payload={"prompt": "Hello"},
+        )
+
+        payload_str = payload_with.decode("utf-8")
+        parts = payload_str.split("\n")
+        # 12 parts: version, envelope_id, sender, recipient, timestamp, expires_at,
+        # nonce, scope, conversation_id, in_reply_to, delegation, payload_json
+        assert len(parts) == 12
+        assert parts[8] == ""  # conversation_id
+        assert parts[9] == ""  # in_reply_to
+        assert parts[10] == ""  # delegation
+
+    def test_sign_and_verify_with_conversation(self):
+        """Test sign/verify round-trip with conversation_id and in_reply_to."""
+        sender_key = KeyPair.generate()
+        recipient_key = KeyPair.generate()
+        nonce = generate_nonce()
+        conv_id = "550e8400-e29b-41d4-a716-446655440001"
+        reply_to = "550e8400-e29b-41d4-a716-446655440002"
+
+        signature = sign_envelope(
+            sender_key,
+            version="1",
+            envelope_id="test-id",
+            sender=sender_key.public_key_hex(),
+            recipient=recipient_key.public_key_hex(),
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce=nonce,
+            scope="test",
+            payload={"prompt": "Hello"},
+            conversation_id=conv_id,
+            in_reply_to=reply_to,
+        )
+
+        sender_public = PublicKey.from_hex(sender_key.public_key_hex())
+        valid = verify_envelope_signature(
+            sender_public,
+            signature,
+            version="1",
+            envelope_id="test-id",
+            sender=sender_key.public_key_hex(),
+            recipient=recipient_key.public_key_hex(),
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce=nonce,
+            scope="test",
+            payload={"prompt": "Hello"},
+            conversation_id=conv_id,
+            in_reply_to=reply_to,
+        )
+
+        assert valid is True
+
+    def test_sign_and_verify_with_delegation(self):
+        """Test sign/verify round-trip with delegation field."""
+        sender_key = KeyPair.generate()
+        recipient_key = KeyPair.generate()
+        nonce = generate_nonce()
+        delegation = {"on_behalf_of": "a" * 64, "authorization": "token-123"}
+
+        signature = sign_envelope(
+            sender_key,
+            version="1",
+            envelope_id="test-id",
+            sender=sender_key.public_key_hex(),
+            recipient=recipient_key.public_key_hex(),
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce=nonce,
+            scope="test",
+            payload={"prompt": "Hello"},
+            delegation=delegation,
+        )
+
+        sender_public = PublicKey.from_hex(sender_key.public_key_hex())
+        valid = verify_envelope_signature(
+            sender_public,
+            signature,
+            version="1",
+            envelope_id="test-id",
+            sender=sender_key.public_key_hex(),
+            recipient=recipient_key.public_key_hex(),
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce=nonce,
+            scope="test",
+            payload={"prompt": "Hello"},
+            delegation=delegation,
+        )
+
+        assert valid is True
+
+    def test_tampered_conversation_id_fails(self):
+        """Test signature fails if conversation_id is changed after signing."""
+        sender_key = KeyPair.generate()
+        recipient_key = KeyPair.generate()
+        nonce = generate_nonce()
+        conv_id = "550e8400-e29b-41d4-a716-446655440001"
+
+        signature = sign_envelope(
+            sender_key,
+            version="1",
+            envelope_id="test-id",
+            sender=sender_key.public_key_hex(),
+            recipient=recipient_key.public_key_hex(),
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce=nonce,
+            scope="test",
+            payload={"prompt": "Hello"},
+            conversation_id=conv_id,
+        )
+
+        # Verify with tampered conversation_id
+        sender_public = PublicKey.from_hex(sender_key.public_key_hex())
+        valid = verify_envelope_signature(
+            sender_public,
+            signature,
+            version="1",
+            envelope_id="test-id",
+            sender=sender_key.public_key_hex(),
+            recipient=recipient_key.public_key_hex(),
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce=nonce,
+            scope="test",
+            payload={"prompt": "Hello"},
+            conversation_id="550e8400-e29b-41d4-a716-446655440099",  # tampered
+        )
+
+        assert valid is False

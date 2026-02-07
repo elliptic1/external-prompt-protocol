@@ -121,6 +121,9 @@ class InboxProcessor:
                 envelope.nonce,
                 envelope.scope,
                 envelope.payload.model_dump(exclude_none=True),
+                conversation_id=envelope.conversation_id,
+                in_reply_to=envelope.in_reply_to,
+                delegation=(envelope.delegation.model_dump() if envelope.delegation else None),
             )
 
             if not signature_valid:
@@ -194,9 +197,7 @@ class InboxProcessor:
 
         if not rate_allowed:
             logger.warning(f"Rate limited: {envelope.sender[:16]}... - {rate_reason}")
-            return self._error_receipt(
-                envelope_id, received_at, "RATE_LIMITED", rate_reason
-            )
+            return self._error_receipt(envelope_id, received_at, "RATE_LIMITED", rate_reason)
 
         # All checks passed - record nonce and execute
         try:
@@ -204,15 +205,17 @@ class InboxProcessor:
         except ValueError as e:
             # Race condition - nonce was added between check and here
             logger.warning(f"Race condition on nonce: {e}")
-            return self._error_receipt(
-                envelope_id, received_at, "REPLAY_DETECTED", str(e)
-            )
+            return self._error_receipt(envelope_id, received_at, "REPLAY_DETECTED", str(e))
 
         # Execute the envelope
         logger.info(
             f"Accepted envelope {envelope_id} from {trust_entry.name} "
             f"({envelope.sender[:16]}...) with scope '{envelope.scope}'"
         )
+        if envelope.delegation:
+            logger.info(f"  Delegation: on behalf of {envelope.delegation.on_behalf_of[:16]}...")
+        if envelope.conversation_id:
+            logger.info(f"  Conversation: {envelope.conversation_id}")
 
         execution_result = self.executor.execute(envelope)
 

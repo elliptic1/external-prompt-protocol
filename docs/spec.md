@@ -65,9 +65,16 @@ An EPP envelope is a JSON object containing:
   "payload": {
     "prompt": "<text>",
     "context": {},
-    "metadata": {}
+    "metadata": {},
+    "payload_type": "<type-hint>"
   },
-  "signature": "<base64-signature>"
+  "signature": "<base64-signature>",
+  "conversation_id": "<uuid>",
+  "in_reply_to": "<uuid>",
+  "delegation": {
+    "on_behalf_of": "<public-key-hex>",
+    "authorization": "<optional-evidence>"
+  }
 }
 ```
 
@@ -93,8 +100,17 @@ An EPP envelope is a JSON object containing:
   - **prompt** (required, string): The prompt text to be delivered.
   - **context** (optional, object): Structured context data (JSON).
   - **metadata** (optional, object): Additional metadata (JSON).
+  - **payload_type** (optional, string): Type hint for payload schema (e.g., "order-request", "medical-record"). Alphanumeric and hyphens only.
 
 **signature** (required, string): Cryptographic signature of the canonical envelope, base64-encoded.
+
+**conversation_id** (optional, string): UUID linking envelopes in a multi-step exchange. All envelopes in the same conversation share this ID.
+
+**in_reply_to** (optional, string): The `envelope_id` of the envelope being responded to. Used to chain request-response pairs within a conversation.
+
+**delegation** (optional, object): Delegation info for acting on behalf of another entity.
+  - **on_behalf_of** (required, string): Public key hex (64 characters) of the principal being represented.
+  - **authorization** (optional, string): Evidence of delegation authority (e.g., signed token, reference ID).
 
 ### 3.3 Size Limits
 
@@ -115,14 +131,16 @@ Implementations SHOULD enforce reasonable size limits:
 
 To create a signature:
 
-1. Create a signing payload by serializing these fields in order:
+1. Create a signing payload by serializing these 12 fields in order:
    ```
-   version||envelope_id||sender||recipient||timestamp||expires_at||nonce||scope||payload_json
+   version||envelope_id||sender||recipient||timestamp||expires_at||nonce||scope||conversation_id||in_reply_to||delegation_json||payload_json
    ```
 
 2. Where:
    - `||` represents concatenation with a newline (`\n`) separator
-   - `payload_json` is the compact JSON serialization of the payload object (no whitespace)
+   - Optional fields (`conversation_id`, `in_reply_to`, `delegation_json`) use an empty string when absent
+   - `delegation_json` is compact sorted JSON of the delegation object when present, empty string when absent
+   - `payload_json` is the compact JSON serialization of the payload object (no whitespace), always last
 
 3. Compute signature:
    ```
@@ -342,6 +360,48 @@ Breaking changes require a new version number. Implementations SHOULD reject env
 - ISO-8601: Date and time format
 - JSON: RFC 8259
 - UUID: RFC 4122
+
+## 13. Conversation Patterns
+
+EPP supports multi-step exchanges between AI systems through conversation threading, reply chaining, and delegation.
+
+### 13.1 Conversation Threading
+
+The `conversation_id` field links multiple envelopes into a single conversation. The initiator generates a UUID and sets it on the first envelope. All subsequent envelopes in the exchange use the same `conversation_id`.
+
+### 13.2 Reply Chaining
+
+The `in_reply_to` field references the `envelope_id` of the envelope being responded to, creating request-response pairs within a conversation. This enables:
+- Correlating responses with their requests
+- Building ordered conversation histories
+- Detecting missing or out-of-order messages
+
+### 13.3 Delegation
+
+The `delegation` field allows a sender to act on behalf of another entity. The `on_behalf_of` field contains the public key of the principal, and `authorization` provides optional evidence of the delegation.
+
+Delegation is cryptographically verified: the envelope is signed by the sender (the delegate), not the principal. The recipient's trust policy determines whether to accept delegated messages.
+
+### 13.4 Medical Network Example
+
+A multi-party medical scenario using conversation threading and delegation:
+
+1. **Doctor → Patient**: Doctor sends lab results to patient's AI (new `conversation_id`)
+2. **Patient → Wife**: Patient's AI forwards results to wife's AI (same `conversation_id`, `in_reply_to` references step 1)
+3. **Doctor → Cardiologist**: Doctor sends referral on patient's behalf (new `conversation_id`, `delegation.on_behalf_of` = patient's public key)
+
+Trust chains: Patient trusts doctor and wife. Doctor trusts cardiologist. Each party maintains their own trust registry.
+
+### 13.5 Commerce Example
+
+A restaurant ordering flow using conversation threading and typed payloads:
+
+1. **Customer → Restaurant**: Menu query (`payload_type: "menu-query"`, new `conversation_id`)
+2. **Restaurant → Customer**: Menu response (`payload_type: "menu-response"`, `in_reply_to` = step 1)
+3. **Customer → Restaurant**: Order request (`payload_type: "order-request"`, `in_reply_to` = step 2)
+4. **Restaurant → Customer**: Order confirmation (`payload_type: "order-confirmation"`, `in_reply_to` = step 3)
+
+All four envelopes share the same `conversation_id`. The `payload_type` field enables AI systems to route and process messages based on their semantic type.
 
 ---
 
