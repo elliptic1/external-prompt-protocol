@@ -4,10 +4,13 @@ EPP data models and validation.
 
 import re
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
+
+from epp.capabilities import Capabilities
+from epp.crypto.integrity import Integrity
 
 
 class Payload(BaseModel):
@@ -79,6 +82,14 @@ class Envelope(BaseModel):
     delegation: Optional[Delegation] = Field(
         default=None,
         description="Delegation info for acting on behalf of another entity",
+    )
+    integrity: Optional[Integrity] = Field(
+        default=None,
+        description="Content integrity hash for payload verification (v1.1)",
+    )
+    capabilities: Optional[Capabilities] = Field(
+        default=None,
+        description="Capability declarations for permission requests (v1.1)",
     )
 
     @field_validator("envelope_id")
