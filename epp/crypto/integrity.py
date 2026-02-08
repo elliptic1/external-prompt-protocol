@@ -10,7 +10,6 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # Supported hash algorithms
 SUPPORTED_ALGORITHMS = ("sha256", "sha384", "sha512")
 HashAlgorithm = Literal["sha256", "sha384", "sha512"]
@@ -52,21 +51,21 @@ def compute_payload_hash(
 ) -> str:
     """
     Compute hash of a payload dictionary.
-    
+
     Args:
         payload: The payload dict to hash
         algorithm: Hash algorithm to use (sha256, sha384, sha512)
-        
+
     Returns:
         Hex-encoded hash string
     """
     if algorithm not in SUPPORTED_ALGORITHMS:
         raise ValueError(f"Unsupported algorithm: {algorithm}")
-    
+
     # Canonical JSON: sorted keys, no whitespace, ensure_ascii for reproducibility
     canonical_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     payload_bytes = canonical_json.encode("utf-8")
-    
+
     hasher = hashlib.new(algorithm)
     hasher.update(payload_bytes)
     return hasher.hexdigest()
@@ -78,11 +77,11 @@ def create_integrity(
 ) -> Integrity:
     """
     Create an Integrity object for a payload.
-    
+
     Args:
         payload: The payload dict to hash
         algorithm: Hash algorithm to use
-        
+
     Returns:
         Integrity object with algorithm and hash
     """
@@ -96,11 +95,11 @@ def verify_integrity(
 ) -> bool:
     """
     Verify payload matches the integrity hash.
-    
+
     Args:
         payload: The payload dict to verify
         integrity: The Integrity object to check against
-        
+
     Returns:
         True if hash matches, False otherwise
     """
@@ -111,10 +110,10 @@ def verify_integrity(
 def integrity_from_dict(data: Dict[str, Any]) -> Optional[Integrity]:
     """
     Create Integrity from a dict (for parsing envelopes).
-    
+
     Args:
         data: Dict with 'alg' and 'hash' keys
-        
+
     Returns:
         Integrity object or None if data is None
     """

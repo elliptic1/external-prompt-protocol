@@ -137,7 +137,7 @@ class TestCheckCapabilityAllowed:
         """Test that empty capabilities are allowed."""
         declared = Capabilities()
         allowed = Capabilities()
-        
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert is_allowed
         assert denied == []
@@ -146,7 +146,7 @@ class TestCheckCapabilityAllowed:
         """Test that declared action is allowed when in allowed list."""
         declared = Capabilities(actions=["send_notification"])
         allowed = Capabilities(actions=["send_notification", "query_calendar"])
-        
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert is_allowed
         assert denied == []
@@ -155,7 +155,7 @@ class TestCheckCapabilityAllowed:
         """Test that declared action is denied when not in allowed list."""
         declared = Capabilities(actions=["delete_everything"])
         allowed = Capabilities(actions=["send_notification"])
-        
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert not is_allowed
         assert "action:delete_everything" in denied
@@ -164,7 +164,7 @@ class TestCheckCapabilityAllowed:
         """Test that wildcard allows all actions."""
         declared = Capabilities(actions=["any_action"])
         allowed = Capabilities(actions=["*"])
-        
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert is_allowed
 
@@ -172,7 +172,7 @@ class TestCheckCapabilityAllowed:
         """Test that declared data access is allowed."""
         declared = Capabilities(data_access=["contacts:read"])
         allowed = Capabilities(data_access=["contacts:read", "contacts:write"])
-        
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert is_allowed
 
@@ -180,44 +180,34 @@ class TestCheckCapabilityAllowed:
         """Test that undeclared data access is denied."""
         declared = Capabilities(data_access=["admin:full"])
         allowed = Capabilities(data_access=["contacts:read"])
-        
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert not is_allowed
         assert "data:admin:full" in denied
 
     def test_network_domain_allowed(self):
         """Test that declared domain is allowed."""
-        declared = Capabilities(
-            network=NetworkCapabilities(domains=["api.example.com"])
-        )
+        declared = Capabilities(network=NetworkCapabilities(domains=["api.example.com"]))
         allowed = Capabilities(
             network=NetworkCapabilities(domains=["api.example.com", "api.trusted.com"])
         )
-        
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert is_allowed
 
     def test_network_domain_denied(self):
         """Test that undeclared domain is denied."""
-        declared = Capabilities(
-            network=NetworkCapabilities(domains=["evil.com"])
-        )
-        allowed = Capabilities(
-            network=NetworkCapabilities(domains=["api.example.com"])
-        )
-        
+        declared = Capabilities(network=NetworkCapabilities(domains=["evil.com"]))
+        allowed = Capabilities(network=NetworkCapabilities(domains=["api.example.com"]))
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert not is_allowed
         assert "network:evil.com" in denied
 
     def test_wildcard_domain_allowed(self):
         """Test that wildcard domain patterns work."""
-        declared = Capabilities(
-            network=NetworkCapabilities(domains=["sub.example.com"])
-        )
-        allowed = Capabilities(
-            network=NetworkCapabilities(domains=["*.example.com"])
-        )
-        
+        declared = Capabilities(network=NetworkCapabilities(domains=["sub.example.com"]))
+        allowed = Capabilities(network=NetworkCapabilities(domains=["*.example.com"]))
+
         is_allowed, denied = check_capability_allowed(declared, allowed)
         assert is_allowed

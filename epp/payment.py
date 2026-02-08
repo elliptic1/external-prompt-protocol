@@ -12,36 +12,36 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # Supported chains
 SupportedChain = Literal[
-    "ethereum", "base", "optimism", "arbitrum", "polygon", 
-    "solana", "avalanche", "bsc"
+    "ethereum", "base", "optimism", "arbitrum", "polygon", "solana", "avalanche", "bsc"
 ]
 
 SUPPORTED_CHAINS = (
-    "ethereum", "base", "optimism", "arbitrum", "polygon",
-    "solana", "avalanche", "bsc"
+    "ethereum",
+    "base",
+    "optimism",
+    "arbitrum",
+    "polygon",
+    "solana",
+    "avalanche",
+    "bsc",
 )
 
 # Common currencies
-SupportedCurrency = Literal[
-    "USDC", "USDT", "ETH", "SOL", "MATIC", "AVAX", "BNB", "DAI"
-]
+SupportedCurrency = Literal["USDC", "USDT", "ETH", "SOL", "MATIC", "AVAX", "BNB", "DAI"]
 
-SUPPORTED_CURRENCIES = (
-    "USDC", "USDT", "ETH", "SOL", "MATIC", "AVAX", "BNB", "DAI"
-)
+SUPPORTED_CURRENCIES = ("USDC", "USDT", "ETH", "SOL", "MATIC", "AVAX", "BNB", "DAI")
 
 
 class PaymentRequest(BaseModel):
     """
     Payment request in an EPP envelope.
-    
+
     Used when the sender requires payment to process the request.
     Follows the x402 (HTTP 402 Payment Required) pattern.
     """
-    
+
     required: bool = Field(
         default=True,
         description="Whether payment is required (vs optional tip)",
@@ -116,7 +116,9 @@ class PaymentRequest(BaseModel):
     def validate_recipient(cls, v: str) -> str:
         """Validate recipient address format."""
         # Basic validation - starts with 0x for EVM or is base58 for Solana
-        if not (v.startswith("0x") and len(v) == 42) and not re.match(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$", v):
+        if not (v.startswith("0x") and len(v) == 42) and not re.match(
+            r"^[1-9A-HJ-NP-Za-km-z]{32,44}$", v
+        ):
             # Allow other formats too (ENS, etc.)
             if not re.match(r"^[a-zA-Z0-9\.\-_]+$", v):
                 raise ValueError(f"Invalid recipient address: {v}")
@@ -143,7 +145,7 @@ class PaymentRequest(BaseModel):
     def to_402_response(self) -> Dict[str, Any]:
         """
         Convert to HTTP 402 response format.
-        
+
         Returns dict suitable for JSON response body.
         """
         return {
@@ -160,10 +162,10 @@ class PaymentRequest(BaseModel):
 class PaymentProof(BaseModel):
     """
     Proof of payment in an EPP envelope.
-    
+
     Used to prove payment was made for a previous request.
     """
-    
+
     tx_hash: str = Field(
         ...,
         description="Transaction hash on the blockchain",
@@ -244,7 +246,7 @@ class PaymentProof(BaseModel):
     def get_explorer_url(self) -> Optional[str]:
         """
         Get block explorer URL for this transaction.
-        
+
         Returns URL or None if chain not recognized.
         """
         explorers = {
@@ -266,11 +268,11 @@ class PaymentProof(BaseModel):
 class StakeReference(BaseModel):
     """
     Reference to an on-chain stake for reputation.
-    
+
     Used when an attestor has staked tokens as collateral for their attestation.
     The stake can be slashed if the attested content is found to be malicious.
     """
-    
+
     contract: str = Field(
         ...,
         description="Staking contract address",
@@ -381,7 +383,7 @@ def create_payment_request(
 ) -> PaymentRequest:
     """
     Create a payment request with sensible defaults.
-    
+
     Args:
         amount: Payment amount
         currency: Currency code (USDC, ETH, etc.)
@@ -390,16 +392,18 @@ def create_payment_request(
         memo: Optional memo/reference
         expires_in_minutes: Minutes until expiration (default 15)
         required: Whether payment is required vs optional
-        
+
     Returns:
         PaymentRequest object
     """
     from datetime import timedelta
-    
+
     expires_at = (
-        datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)
-    ).isoformat().replace("+00:00", "Z")
-    
+        (datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes))
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
     return PaymentRequest(
         required=required,
         amount=amount,
@@ -418,38 +422,38 @@ def verify_payment_proof(
 ) -> tuple[bool, List[str]]:
     """
     Verify that a payment proof matches a payment request.
-    
+
     Note: This does NOT verify on-chain - only checks the proof matches the request.
     On-chain verification requires chain-specific RPC calls.
-    
+
     Args:
         proof: The payment proof to verify
         request: The original payment request
         tolerance_percent: Allowed difference in amount (for gas/fees)
-        
+
     Returns:
         Tuple of (is_valid, list of issues)
     """
     issues = []
-    
+
     # Check chain matches
     if proof.chain != request.chain:
         issues.append(f"Chain mismatch: proof={proof.chain}, request={request.chain}")
-    
+
     # Check currency matches
     if proof.currency != request.currency:
         issues.append(f"Currency mismatch: proof={proof.currency}, request={request.currency}")
-    
+
     # Check recipient matches
     if proof.recipient.lower() != request.recipient.lower():
         issues.append(f"Recipient mismatch: proof={proof.recipient}, request={request.recipient}")
-    
+
     # Check amount (with tolerance)
     try:
         proof_amount = Decimal(proof.amount)
         request_amount = Decimal(request.amount)
         min_amount = request_amount * Decimal(1 - tolerance_percent / 100)
-        
+
         if proof_amount < min_amount:
             issues.append(
                 f"Amount too low: proof={proof.amount}, request={request.amount} "
@@ -457,5 +461,5 @@ def verify_payment_proof(
             )
     except Exception as e:
         issues.append(f"Amount comparison failed: {e}")
-    
+
     return (len(issues) == 0, issues)

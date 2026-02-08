@@ -14,7 +14,6 @@ from epp.provenance import (
     verify_provenance_entry,
 )
 
-
 # Test fixtures
 SAMPLE_IDENTITY = "a" * 64
 SAMPLE_IDENTITY_2 = "b" * 64
@@ -139,7 +138,7 @@ class TestProvenance:
             signature=SAMPLE_SIGNATURE,
         )
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH, entries=[entry])
-        
+
         assert prov.has_role("author")
         assert not prov.has_role("auditor")
 
@@ -166,10 +165,10 @@ class TestProvenance:
             ),
         ]
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH, entries=entries)
-        
+
         authors = prov.get_by_role("author")
         assert len(authors) == 1
-        
+
         auditors = prov.get_auditors()
         assert len(auditors) == 2
 
@@ -200,7 +199,7 @@ class TestProvenance:
             content_hash=SAMPLE_CONTENT_HASH,
             entries=[entry1, entry2],
         )
-        
+
         valid, err = prov.verify_chain_integrity()
         assert valid
 
@@ -224,7 +223,7 @@ class TestProvenance:
             content_hash=SAMPLE_CONTENT_HASH,
             entries=[entry1, entry2],
         )
-        
+
         valid, err = prov.verify_chain_integrity()
         assert not valid
         assert "mismatch" in err
@@ -235,9 +234,10 @@ class TestCreateProvenanceEntry:
 
     def test_create_entry_with_sign_func(self):
         """Test creating entry with signing function."""
+
         def mock_sign(payload: bytes) -> str:
             return base64.b64encode(b"signed:" + payload[:10]).decode()
-        
+
         entry = create_provenance_entry(
             role="author",
             identity=SAMPLE_IDENTITY,
@@ -245,7 +245,7 @@ class TestCreateProvenanceEntry:
             sign_func=mock_sign,
             statement="I wrote this",
         )
-        
+
         assert entry.role == "author"
         assert entry.identity == SAMPLE_IDENTITY
         assert entry.statement == "I wrote this"
@@ -258,10 +258,10 @@ class TestAddAttestation:
     def test_add_first_attestation(self):
         """Test adding first attestation to empty chain."""
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH)
-        
+
         def mock_sign(payload: bytes) -> str:
             return base64.b64encode(b"sig").decode()
-        
+
         new_prov = add_attestation(
             prov,
             role="author",
@@ -269,23 +269,24 @@ class TestAddAttestation:
             sign_func=mock_sign,
             statement="I authored this",
         )
-        
+
         assert new_prov.chain_depth() == 1
         assert new_prov.entries[0].role == "author"
         assert new_prov.entries[0].parent_hash == SAMPLE_CONTENT_HASH
 
     def test_add_subsequent_attestation(self):
         """Test adding attestation to existing chain."""
+
         def mock_sign(payload: bytes) -> str:
             return base64.b64encode(b"sig").decode()
-        
+
         # Create chain with author
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH)
         prov = add_attestation(prov, "author", SAMPLE_IDENTITY, mock_sign)
-        
+
         # Add auditor
         prov = add_attestation(prov, "auditor", SAMPLE_IDENTITY_2, mock_sign)
-        
+
         assert prov.chain_depth() == 2
         assert prov.entries[1].role == "auditor"
         # Second entry should link to first
@@ -303,10 +304,10 @@ class TestVerifyProvenanceEntry:
             timestamp="2026-02-08T00:00:00Z",
             signature=SAMPLE_SIGNATURE,
         )
-        
+
         def mock_verify(identity, payload, signature):
             return True
-        
+
         assert verify_provenance_entry(entry, SAMPLE_CONTENT_HASH, mock_verify)
 
     def test_verify_invalid_entry(self):
@@ -317,10 +318,10 @@ class TestVerifyProvenanceEntry:
             timestamp="2026-02-08T00:00:00Z",
             signature=SAMPLE_SIGNATURE,
         )
-        
+
         def mock_verify(identity, payload, signature):
             return False
-        
+
         assert not verify_provenance_entry(entry, SAMPLE_CONTENT_HASH, mock_verify)
 
 
@@ -337,10 +338,10 @@ class TestVerifyProvenanceChain:
             parent_hash=SAMPLE_CONTENT_HASH,
         )
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH, entries=[entry])
-        
+
         def mock_verify(identity, payload, signature):
             return True
-        
+
         valid, errors = verify_provenance_chain(prov, mock_verify)
         assert valid
         assert errors == []
@@ -355,10 +356,10 @@ class TestVerifyProvenanceChain:
             parent_hash=SAMPLE_CONTENT_HASH,
         )
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH, entries=[entry])
-        
+
         def mock_verify(identity, payload, signature):
             return False  # All signatures invalid
-        
+
         valid, errors = verify_provenance_chain(prov, mock_verify)
         assert not valid
         assert len(errors) == 1
@@ -378,7 +379,7 @@ class TestCheckProvenanceRequirements:
     def test_min_depth_requirement(self):
         """Test minimum depth requirement."""
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH)
-        
+
         valid, unmet = check_provenance_requirements(prov, min_depth=1)
         assert not valid
         assert "Chain depth" in unmet[0]
@@ -392,11 +393,9 @@ class TestCheckProvenanceRequirements:
             signature=SAMPLE_SIGNATURE,
         )
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH, entries=[entry])
-        
+
         # Has author, requires auditor
-        valid, unmet = check_provenance_requirements(
-            prov, required_roles=["author", "auditor"]
-        )
+        valid, unmet = check_provenance_requirements(prov, required_roles=["author", "auditor"])
         assert not valid
         assert "Missing required role: auditor" in unmet
 
@@ -417,7 +416,7 @@ class TestCheckProvenanceRequirements:
             ),
         ]
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH, entries=entries)
-        
+
         # Has 1 auditor, requires 2
         valid, unmet = check_provenance_requirements(prov, min_auditors=2)
         assert not valid
@@ -446,7 +445,7 @@ class TestCheckProvenanceRequirements:
             ),
         ]
         prov = Provenance(content_hash=SAMPLE_CONTENT_HASH, entries=entries)
-        
+
         valid, unmet = check_provenance_requirements(
             prov,
             min_depth=3,

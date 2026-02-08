@@ -75,7 +75,7 @@ class NetworkCapabilities(BaseModel):
 class Capabilities(BaseModel):
     """
     Capability declarations for an EPP envelope.
-    
+
     These are ADVISORY - the recipient decides whether to honor them.
     Trust registries can require or restrict capabilities per sender.
     """
@@ -147,10 +147,10 @@ class Capabilities(BaseModel):
 def capabilities_from_dict(data: Optional[Dict[str, Any]]) -> Optional[Capabilities]:
     """
     Create Capabilities from a dict (for parsing envelopes).
-    
+
     Args:
         data: Dict with capability declarations
-        
+
     Returns:
         Capabilities object or None if data is None
     """
@@ -165,23 +165,23 @@ def check_capability_allowed(
 ) -> tuple[bool, List[str]]:
     """
     Check if declared capabilities are allowed by a policy.
-    
+
     Args:
         declared: Capabilities declared by sender
         allowed: Capabilities allowed by recipient's policy
-        
+
     Returns:
         Tuple of (is_allowed, list of denied capabilities)
     """
     denied = []
-    
+
     # Check actions
     if declared.actions:
         allowed_actions = set(allowed.actions) if allowed.actions else set()
         for action in declared.actions:
             if action not in allowed_actions and "*" not in allowed_actions:
                 denied.append(f"action:{action}")
-    
+
     # Check data access
     if declared.data_access:
         allowed_data = set(allowed.data_access) if allowed.data_access else set()
@@ -191,21 +191,21 @@ def check_capability_allowed(
                 resource = scope.split(":")[0]
                 if f"{resource}:*" not in allowed_data:
                     denied.append(f"data:{scope}")
-    
+
     # Check network domains
     if declared.network and declared.network.domains:
         allowed_domains = set(allowed.network.domains) if allowed.network else set()
         for domain in declared.network.domains:
             if not _domain_allowed(domain, allowed_domains):
                 denied.append(f"network:{domain}")
-    
+
     # Check filesystem (more complex - would need path matching)
     if declared.filesystem:
         if declared.filesystem.read and (not allowed.filesystem or not allowed.filesystem.read):
             denied.append("filesystem:read")
         if declared.filesystem.write and (not allowed.filesystem or not allowed.filesystem.write):
             denied.append("filesystem:write")
-    
+
     return (len(denied) == 0, denied)
 
 
@@ -213,12 +213,12 @@ def _domain_allowed(domain: str, allowed: set[str]) -> bool:
     """Check if a domain matches allowed patterns."""
     if domain in allowed or "*" in allowed:
         return True
-    
+
     # Check wildcard patterns
     for pattern in allowed:
         if pattern.startswith("*."):
             suffix = pattern[1:]  # .example.com
             if domain.endswith(suffix) or domain == pattern[2:]:
                 return True
-    
+
     return False

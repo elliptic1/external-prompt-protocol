@@ -14,7 +14,6 @@ from epp.payment import (
     verify_payment_proof,
 )
 
-
 # Test fixtures
 SAMPLE_EVM_ADDRESS = "0x1234567890123456789012345678901234567890"
 SAMPLE_EVM_ADDRESS_2 = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
@@ -113,7 +112,7 @@ class TestPaymentRequest:
             memo="API call: weather",
         )
         response = req.to_402_response()
-        
+
         assert response["payment_required"] is True
         assert response["amount"] == "0.01"
         assert response["currency"] == "USDC"
@@ -298,7 +297,7 @@ class TestVerifyPaymentProof:
             payer=SAMPLE_EVM_ADDRESS_2,
             recipient=SAMPLE_EVM_ADDRESS,
         )
-        
+
         valid, issues = verify_payment_proof(proof, request)
         assert valid
         assert issues == []
@@ -319,7 +318,7 @@ class TestVerifyPaymentProof:
             payer=SAMPLE_EVM_ADDRESS_2,
             recipient=SAMPLE_EVM_ADDRESS,
         )
-        
+
         valid, issues = verify_payment_proof(proof, request)
         assert not valid
         assert any("Chain mismatch" in i for i in issues)
@@ -340,7 +339,7 @@ class TestVerifyPaymentProof:
             payer=SAMPLE_EVM_ADDRESS_2,
             recipient=SAMPLE_EVM_ADDRESS,
         )
-        
+
         valid, issues = verify_payment_proof(proof, request)
         assert not valid
         assert any("Currency mismatch" in i for i in issues)
@@ -361,7 +360,7 @@ class TestVerifyPaymentProof:
             payer=SAMPLE_EVM_ADDRESS_2,
             recipient=SAMPLE_EVM_ADDRESS,
         )
-        
+
         valid, issues = verify_payment_proof(proof, request)
         assert not valid
         assert any("Amount too low" in i for i in issues)
@@ -382,7 +381,7 @@ class TestVerifyPaymentProof:
             payer=SAMPLE_EVM_ADDRESS_2,
             recipient=SAMPLE_EVM_ADDRESS,
         )
-        
+
         # Should pass with default 1% tolerance
         valid, issues = verify_payment_proof(proof, request, tolerance_percent=1.0)
         assert valid
@@ -403,7 +402,7 @@ class TestVerifyPaymentProof:
             payer=SAMPLE_EVM_ADDRESS_2,
             recipient=SAMPLE_EVM_ADDRESS_2,  # Wrong recipient
         )
-        
+
         valid, issues = verify_payment_proof(proof, request)
         assert not valid
         assert any("Recipient mismatch" in i for i in issues)
