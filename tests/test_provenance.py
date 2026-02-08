@@ -2,7 +2,6 @@
 
 import base64
 import pytest
-from unittest.mock import Mock
 
 from epp.provenance import (
     Provenance,
