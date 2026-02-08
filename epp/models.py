@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from epp.capabilities import Capabilities
 from epp.crypto.integrity import Integrity
+from epp.provenance import Provenance
 
 
 class Payload(BaseModel):
@@ -90,6 +91,10 @@ class Envelope(BaseModel):
     capabilities: Optional[Capabilities] = Field(
         default=None,
         description="Capability declarations for permission requests (v1.1)",
+    )
+    provenance: Optional[Provenance] = Field(
+        default=None,
+        description="Provenance chain with attestations (author, auditor, voucher) (v1.1)",
     )
 
     @field_validator("envelope_id")
