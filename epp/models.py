@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from epp.capabilities import Capabilities
 from epp.crypto.integrity import Integrity
+from epp.payment import PaymentProof, PaymentRequest, StakeReference
 from epp.provenance import Provenance
 
 
@@ -95,6 +96,18 @@ class Envelope(BaseModel):
     provenance: Optional[Provenance] = Field(
         default=None,
         description="Provenance chain with attestations (author, auditor, voucher) (v1.1)",
+    )
+    payment: Optional[PaymentRequest] = Field(
+        default=None,
+        description="Payment request for pay-per-request (x402 pattern) (v1.1)",
+    )
+    payment_proof: Optional[PaymentProof] = Field(
+        default=None,
+        description="Proof of payment for a previous request (v1.1)",
+    )
+    stake: Optional[StakeReference] = Field(
+        default=None,
+        description="Reference to on-chain stake for reputation (v1.1)",
     )
 
     @field_validator("envelope_id")
