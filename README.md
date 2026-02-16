@@ -120,6 +120,8 @@ That's it. You're now receiving cryptographically verified prompts.
 - **Conversation Threading** — Multi-step exchanges linked by `conversation_id` with `in_reply_to` chaining
 - **Typed Payloads** — `payload_type` field enables semantic routing (e.g., `order-request`, `medical-record`)
 - **Delegation** — Act on behalf of another entity with cryptographic evidence
+- **AI-to-AI Services** — Professional AIs (lawyers, doctors) offer paid consultations to client AIs
+- **Payment Integration** — x402-style payment requests and proofs for agent commerce
 - **Model Agnostic** — Works with any LLM (local, cloud, agent frameworks)
 
 ### Transport Options
@@ -170,6 +172,43 @@ sign_envelope(..., scope="order-confirmation", payload_type="order-confirmation"
 ```
 
 All four envelopes share a `conversation_id`. See [`examples/restaurant_order.py`](examples/restaurant_order.py).
+
+### Lawyer Consultation (AI-to-AI Paid Services)
+
+A person wants legal advice but doesn't want to leave home or talk to a human. They just talk to their own AI:
+
+```python
+from epp.services import create_legal_consultation_listing, create_service_request
+
+# Lawyer's AI publishes a service listing (setup once)
+listing = create_legal_consultation_listing(
+    provider=lawyer_public_key,
+    title="California Employment Law",
+    jurisdictions=["US-CA"],
+    specialties=["employment-law"],
+    payment_address="0x742d...",
+    inbox_url="https://inbox.lawyer-ai.example.com/epp",
+    basic_price="5.00",     # $5 per question
+    expert_price="100.00",  # $100 for multi-turn session
+)
+
+# Client's AI finds service, pays fee, sends question
+request = create_service_request(
+    service_listing=listing,
+    client=client_public_key,
+    query="My employer laid me off after I filed an overtime complaint...",
+    tier="basic",
+    payment_proof=payment_proof,  # On-chain payment
+)
+
+# Lawyer's AI responds (no human involvement)
+# Client's AI presents response to user
+```
+
+The lawyer never has to do extra work — their AI handles it.
+The user never leaves home — they just talk to their own AI.
+
+See [`examples/lawyer_consultation.py`](examples/lawyer_consultation.py) and [AI-to-AI Services docs](docs/ai-to-ai-services.md).
 
 ### Medical Network (Delegation + Trust Chains)
 
@@ -255,6 +294,7 @@ await transport.send(envelope, customer_solana_address)
 | Document | Description |
 |----------|-------------|
 | [Protocol Specification](docs/spec.md) | Formal protocol definition |
+| [AI-to-AI Services](docs/ai-to-ai-services.md) | Paid consultation pattern (lawyer, doctor, etc.) |
 | [Threat Model](docs/threat-model.md) | Security analysis and mitigations |
 | [Quick Start Guide](docs/quickstart.md) | HTTP inbox setup tutorial |
 | [Solana Transport](docs/solana-transport.md) | Blockchain transport for serverless delivery |
