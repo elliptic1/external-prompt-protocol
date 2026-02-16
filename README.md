@@ -178,7 +178,8 @@ All four envelopes share a `conversation_id`. See [`examples/restaurant_order.py
 A person wants legal advice but doesn't want to leave home or talk to a human. They just talk to their own AI:
 
 ```python
-from epp.services import create_legal_consultation_listing, create_service_request
+# Example services layer (see examples/services/)
+from services import create_legal_consultation_listing, create_service_request
 
 # Lawyer's AI publishes a service listing (setup once)
 listing = create_legal_consultation_listing(

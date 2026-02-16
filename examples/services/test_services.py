@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
 from epp.payment import PaymentProof
-from epp.services import (
+from services import (
     ServiceTier,
     ServiceListing,
     ServiceRequest,

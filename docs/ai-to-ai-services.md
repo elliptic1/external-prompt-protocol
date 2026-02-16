@@ -1,5 +1,8 @@
 # AI-to-AI Services
 
+> **Note:** This is a reference implementation showing what can be built on top of EPP.
+> The code lives in `examples/services/` — it is not part of the core EPP protocol.
+
 EPP enables **AI-to-AI paid consultations** where professional AIs (lawyers, doctors, accountants) can offer services that client AIs consume on behalf of their users.
 
 ## The Problem
@@ -287,11 +290,12 @@ A service registry might look like:
 4. **Confidentiality** — Encryption at rest and in transit
 5. **Audit Trail** — Both sides retain signed envelopes
 
-## Running the Example
+## Running the Examples
 
 ```bash
-cd external-prompt-protocol
-python examples/lawyer_consultation.py
+cd external-prompt-protocol/examples
+PYTHONPATH=..:. python3 lawyer_consultation.py
+PYTHONPATH=..:. python3 provider_workflow.py
 ```
 
 This demonstrates the full flow:

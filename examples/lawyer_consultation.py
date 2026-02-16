@@ -20,12 +20,14 @@ import os
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
-# EPP imports
+# EPP core imports
 from epp.crypto.keys import KeyPair, PublicKey
 from epp.crypto.signing import sign_envelope, verify_envelope_signature
 from epp.models import Envelope, Payload
 from epp.payment import PaymentProof, create_payment_request
-from epp.services import (
+
+# Services layer (example implementation, not part of EPP core)
+from services.services import (
     ServiceListing,
     ServiceRequest,
     ServiceResponse,

@@ -16,8 +16,11 @@ The AI learns from their guidance and applies it to future consultations.
 
 from datetime import datetime, timezone
 
+# EPP core imports
 from epp.crypto.keys import KeyPair
-from epp.services import (
+
+# Services layer (example implementation, not part of EPP core)
+from services.services import (
     CaseRecord,
     CaseMemory,
     ProviderSession,
