@@ -14,11 +14,19 @@ from epp.services import (
     ServiceResponse,
     ConsultationSession,
     JurisdictionInfo,
+    CaseNote,
+    CaseRecord,
+    CaseMemory,
+    ProviderSession,
+    ProviderMessage,
     create_service_listing,
     create_legal_consultation_listing,
     create_service_request,
     create_service_response,
     create_consultation_session,
+    create_case_record,
+    create_case_memory,
+    create_provider_session,
     service_request_to_payload,
     service_response_to_payload,
     service_listing_to_payload,
@@ -504,3 +512,294 @@ class TestHelperFunctions:
         assert response.service_id == request.service_id
         assert response.provider == TEST_PROVIDER_KEY
         assert response.confidence == 0.9
+
+
+class TestCaseNote:
+    """Tests for CaseNote model."""
+
+    def test_basic_note(self):
+        note = CaseNote(
+            content="Client mentioned overtime issues",
+            note_type="memo",
+            author="ai",
+        )
+        assert note.content == "Client mentioned overtime issues"
+        assert note.note_type == "memo"
+        assert note.author == "ai"
+        assert note.note_id is not None
+
+    def test_note_with_references(self):
+        note = CaseNote(
+            content="See related case",
+            note_type="guidance",
+            author="provider",
+            references=["case-123", "doc-456"],
+        )
+        assert len(note.references) == 2
+
+
+class TestCaseRecord:
+    """Tests for CaseRecord model."""
+
+    def test_create_case(self):
+        case = create_case_record(
+            client_id="client-anon-123",
+            category="employment-law",
+            title="Retaliation claim",
+            client_public_key=TEST_CLIENT_KEY,
+        )
+        assert case.client_id == "client-anon-123"
+        assert case.category == "employment-law"
+        assert case.status == "active"
+        assert case.priority == "normal"
+
+    def test_add_note(self):
+        case = create_case_record(
+            client_id="c1",
+            category="legal",
+            title="Test",
+        )
+        note = case.add_note(
+            content="Important finding",
+            note_type="update",
+        )
+        assert len(case.notes) == 1
+        assert case.notes[0].content == "Important finding"
+
+    def test_add_fact(self):
+        case = create_case_record(
+            client_id="c1",
+            category="legal",
+            title="Test",
+        )
+        case.add_fact("Client was terminated on Jan 15")
+        case.add_fact("Complaint filed on Jan 10")
+        assert len(case.facts) == 2
+
+    def test_ai_question_workflow(self):
+        case = create_case_record(
+            client_id="c1",
+            category="legal",
+            title="Test",
+        )
+
+        # AI asks a question
+        case.add_ai_question("Should I recommend filing with DLSE?")
+        assert len(case.ai_questions) == 1
+        assert case.ai_questions[0]["answered"] is False
+
+        # Provider answers
+        case.answer_ai_question(0, "Yes, recommend DLSE first because...")
+        assert case.ai_questions[0]["answered"] is True
+        assert case.ai_questions[0]["answer"] == "Yes, recommend DLSE first because..."
+        assert len(case.notes) == 1  # Answer also added as note
+
+    def test_add_guidance(self):
+        case = create_case_record(
+            client_id="c1",
+            category="legal",
+            title="Test",
+        )
+        case.add_guidance("Strong case for retaliation")
+        assert len(case.guidance) == 1
+        assert len(case.notes) == 1  # Guidance also added as note
+
+    def test_link_consultation(self):
+        case = create_case_record(
+            client_id="c1",
+            category="legal",
+            title="Test",
+        )
+        case.link_consultation("req-001")
+        case.link_consultation("req-002")
+        case.link_consultation("req-001")  # Duplicate
+        assert len(case.consultations) == 2
+
+    def test_get_context_for_consultation(self):
+        case = create_case_record(
+            client_id="c1",
+            category="legal",
+            title="Test",
+        )
+        case.add_fact("Fact 1")
+        case.add_guidance("Do X")
+
+        context = case.get_context_for_consultation()
+        assert context["case_id"] == case.case_id
+        assert context["category"] == "legal"
+        assert "Fact 1" in context["facts"]
+        assert "Do X" in context["guidance"]
+
+
+class TestCaseMemory:
+    """Tests for CaseMemory model."""
+
+    def test_create_memory(self):
+        memory = create_case_memory(provider=TEST_PROVIDER_KEY)
+        assert memory.provider == TEST_PROVIDER_KEY
+        assert len(memory.cases) == 0
+
+    def test_add_and_find_case(self):
+        memory = create_case_memory(provider=TEST_PROVIDER_KEY)
+
+        case = create_case_record(
+            client_id="c1",
+            category="legal",
+            title="Test",
+            client_public_key=TEST_CLIENT_KEY,
+        )
+        memory.add_case(case)
+
+        # Find by ID
+        found = memory.get_case(case.case_id)
+        assert found is not None
+        assert found.case_id == case.case_id
+
+        # Find by client ID
+        by_client = memory.find_cases_by_client("c1")
+        assert len(by_client) == 1
+
+        # Find by public key
+        by_pubkey = memory.find_cases_by_pubkey(TEST_CLIENT_KEY)
+        assert len(by_pubkey) == 1
+
+    def test_find_active_cases(self):
+        memory = create_case_memory(provider=TEST_PROVIDER_KEY)
+
+        case1 = create_case_record(client_id="c1", category="legal", title="Active")
+        case2 = create_case_record(client_id="c2", category="legal", title="Closed")
+        case2.status = "closed"
+
+        memory.add_case(case1)
+        memory.add_case(case2)
+
+        active = memory.find_active_cases()
+        assert len(active) == 1
+        assert active[0].title == "Active"
+
+    def test_find_cases_with_questions(self):
+        memory = create_case_memory(provider=TEST_PROVIDER_KEY)
+
+        case1 = create_case_record(client_id="c1", category="legal", title="Has Q")
+        case1.add_ai_question("Question?")
+
+        case2 = create_case_record(client_id="c2", category="legal", title="No Q")
+
+        memory.add_case(case1)
+        memory.add_case(case2)
+
+        with_q = memory.find_cases_with_questions()
+        assert len(with_q) == 1
+        assert with_q[0].title == "Has Q"
+
+    def test_get_context_for_request(self):
+        memory = create_case_memory(provider=TEST_PROVIDER_KEY)
+
+        case = create_case_record(
+            client_id="c1",
+            category="legal",
+            title="Test",
+            client_public_key=TEST_CLIENT_KEY,
+        )
+        case.add_guidance("Important guidance")
+        memory.add_case(case)
+
+        request = ServiceRequest(
+            service_id="svc",
+            client=TEST_CLIENT_KEY,
+            query="Follow-up question",
+        )
+
+        context = memory.get_context_for_request(request)
+        assert context is not None
+        assert "Important guidance" in context["guidance"]
+
+    def test_create_or_update_case(self):
+        memory = create_case_memory(provider=TEST_PROVIDER_KEY)
+
+        request = ServiceRequest(
+            service_id="svc",
+            client=TEST_CLIENT_KEY,
+            query="Initial question",
+            context={"category": "employment"},
+        )
+        response = ServiceResponse(
+            request_id=request.request_id,
+            service_id="svc",
+            provider=TEST_PROVIDER_KEY,
+            response="Response",
+        )
+
+        # Creates new case
+        case = memory.create_or_update_case_from_request(request, response)
+        assert len(memory.cases) == 1
+        assert request.request_id in case.consultations
+
+        # Updates existing case
+        request2 = ServiceRequest(
+            service_id="svc",
+            client=TEST_CLIENT_KEY,
+            query="Follow-up",
+        )
+        response2 = ServiceResponse(
+            request_id=request2.request_id,
+            service_id="svc",
+            provider=TEST_PROVIDER_KEY,
+            response="Follow-up response",
+        )
+
+        case2 = memory.create_or_update_case_from_request(request2, response2)
+        assert len(memory.cases) == 1  # Still 1 case
+        assert case2.case_id == case.case_id
+        assert len(case2.consultations) == 2
+
+
+class TestProviderSession:
+    """Tests for ProviderSession model."""
+
+    def test_create_session(self):
+        session = create_provider_session(provider=TEST_PROVIDER_KEY)
+        assert session.provider == TEST_PROVIDER_KEY
+        assert session.is_active() is True
+        assert len(session.messages) == 0
+
+    def test_add_messages(self):
+        session = create_provider_session(provider=TEST_PROVIDER_KEY)
+
+        session.add_message(
+            role="ai",
+            content="I have a question about case X",
+            case_refs=["case-123"],
+        )
+        session.add_message(
+            role="provider",
+            content="Here's my guidance",
+            case_refs=["case-123"],
+            action_taken="provided_guidance",
+        )
+
+        assert len(session.messages) == 2
+        assert session.messages[0].role == "ai"
+        assert session.messages[1].role == "provider"
+        assert "case-123" in session.cases_discussed
+
+    def test_record_decision(self):
+        session = create_provider_session(provider=TEST_PROVIDER_KEY)
+
+        session.record_decision(
+            case_id="case-456",
+            decision="Recommend filing with DLSE",
+            rationale="Strong temporal evidence",
+        )
+
+        assert len(session.decisions_made) == 1
+        assert session.decisions_made[0]["decision"] == "Recommend filing with DLSE"
+        assert "case-456" in session.cases_discussed
+
+    def test_end_session(self):
+        session = create_provider_session(provider=TEST_PROVIDER_KEY)
+        assert session.is_active() is True
+
+        session.end_session()
+        assert session.is_active() is False
+        assert session.ended_at is not None

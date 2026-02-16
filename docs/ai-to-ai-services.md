@@ -302,6 +302,109 @@ This demonstrates the full flow:
 5. Lawyer AI responds with legal information
 6. Client AI presents response to user
 
+## Provider-Side Workflow
+
+The professional (lawyer, doctor, etc.) can talk to their AI concurrently:
+
+```
+Lawyer ←→ Lawyer's AI (internal conversations)
+               ↓
+         Case Memory (updated with decisions, guidance)
+               ↓
+Client's AI → Lawyer's AI (consultations use case memory)
+```
+
+### Case Memory
+
+The provider's AI maintains a case memory with all client interactions:
+
+```python
+from epp.services import CaseMemory, CaseRecord, create_case_memory
+
+# Initialize case memory
+case_memory = create_case_memory(provider=lawyer_public_key)
+
+# Cases are created automatically from consultations
+case = case_memory.create_or_update_case_from_request(request, response)
+
+# Track facts and guidance
+case.add_fact("Client filed overtime complaint before termination")
+case.add_guidance("Strong case for retaliation - recommend DLSE filing")
+```
+
+### AI Questions → Provider Answers
+
+The AI can queue questions for the provider:
+
+```python
+# AI encounters something it needs guidance on
+case.add_ai_question("Should I recommend filing with DLSE or private attorney first?")
+
+# Later, when the lawyer reviews cases:
+cases_needing_attention = case_memory.find_cases_with_questions()
+
+for case in cases_needing_attention:
+    for i, q in enumerate(case.ai_questions):
+        if not q["answered"]:
+            # Lawyer provides answer
+            case.answer_ai_question(i, "Recommend DLSE first because...")
+```
+
+### Provider Sessions
+
+The provider has conversations with their AI:
+
+```python
+from epp.services import create_provider_session
+
+# Start a session
+session = create_provider_session(provider=lawyer_public_key)
+
+# AI presents pending questions
+session.add_message(role="ai", content="Case X has a question...", case_refs=["case-123"])
+
+# Lawyer responds
+session.add_message(role="provider", content="Here's my guidance...", 
+                   case_refs=["case-123"], action_taken="provided_guidance")
+
+# Record formal decisions
+session.record_decision(
+    case_id="case-123",
+    decision="Recommend DLSE filing",
+    rationale="Strong temporal evidence of retaliation"
+)
+
+# End session
+session.end_session()
+```
+
+### Context-Aware Consultations
+
+When a client returns, their AI gets enriched context:
+
+```python
+# Client sends follow-up
+followup_request = ServiceRequest(client=client_key, query="Should I file with state?")
+
+# AI retrieves case context with lawyer's guidance
+context = case_memory.get_context_for_request(followup_request)
+# {
+#   "case_id": "...",
+#   "facts": ["Filed complaint before termination", ...],
+#   "guidance": ["Strong case - recommend DLSE filing"],
+#   "recent_notes": [...]
+# }
+
+# AI can now give confident, lawyer-informed response
+```
+
+### Running the Example
+
+```bash
+cd external-prompt-protocol
+PYTHONPATH=. python3 examples/provider_workflow.py
+```
+
 ## Future Extensions
 
 - **Reputation System** — On-chain reputation based on outcomes
