@@ -120,9 +120,15 @@ That's it. You're now receiving cryptographically verified prompts.
 - **Conversation Threading** — Multi-step exchanges linked by `conversation_id` with `in_reply_to` chaining
 - **Typed Payloads** — `payload_type` field enables semantic routing (e.g., `order-request`, `medical-record`)
 - **Delegation** — Act on behalf of another entity with cryptographic evidence
-- **AI-to-AI Services** — Professional AIs (lawyers, doctors) offer paid consultations to client AIs
-- **Payment Integration** — x402-style payment requests and proofs for agent commerce
 - **Model Agnostic** — Works with any LLM (local, cloud, agent frameworks)
+
+### Platform Infrastructure
+
+- **Service Registry** — Discovery layer for AI services ("DNS for AI capabilities")
+- **Agent Identity** — Verified identity profiles for AI agents ("SSL of the AI era")
+- **Protocol Fees** — Built-in transaction fees (1% default, configurable)
+- **Attestations** — Third-party verification of agent capabilities
+- **Payment Rails** — x402-style payments with fee splitting
 
 ### Transport Options
 
