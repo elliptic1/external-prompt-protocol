@@ -296,3 +296,110 @@ class TestReceipts:
         """Test invalid error code is rejected."""
         with pytest.raises(ValidationError):
             ErrorDetail(code="INVALID_CODE", message="Test")
+
+    def test_sender_revoked_code_accepted(self):
+        """v1.1: SENDER_REVOKED is a valid error code."""
+        ed = ErrorDetail(code="SENDER_REVOKED", message="revoked")
+        assert ed.code == "SENDER_REVOKED"
+
+
+class TestEnvelopeV11Fields:
+    """v1.1: round-trip the three new optional Envelope fields."""
+
+    def _base_args(self) -> dict:
+        from uuid import uuid4
+
+        from epp.crypto.keys import KeyPair
+        from epp.crypto.signing import generate_nonce, sign_envelope
+
+        sender = KeyPair.generate()
+        recipient = KeyPair.generate()
+        now = datetime.now(timezone.utc)
+        ts = now.isoformat().replace("+00:00", "Z")
+        exp = (now + timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
+        nonce = generate_nonce()
+        envelope_id = str(uuid4())
+        payload = Payload(prompt="hi")
+        sig = sign_envelope(
+            sender,
+            version="1",
+            envelope_id=envelope_id,
+            sender=sender.public_key_hex(),
+            recipient=recipient.public_key_hex(),
+            timestamp=ts,
+            expires_at=exp,
+            nonce=nonce,
+            scope="demo",
+            payload=payload.model_dump(exclude_none=True),
+        )
+        return dict(
+            version="1",
+            envelope_id=envelope_id,
+            sender=sender.public_key_hex(),
+            recipient=recipient.public_key_hex(),
+            timestamp=ts,
+            expires_at=exp,
+            nonce=nonce,
+            scope="demo",
+            payload=payload,
+            signature=sig,
+        )
+
+    def test_attestations_round_trip(self):
+        import base64
+
+        from epp.attestations import (
+            Attestations,
+            compute_subject_hash,
+            create_attestation_entry,
+        )
+        from epp.crypto.keys import KeyPair
+
+        kp = KeyPair.generate()
+        sh = compute_subject_hash(b"x")
+        att = Attestations(
+            threshold=1,
+            required_roles=["auditor"],
+            entries=[
+                create_attestation_entry(
+                    role="auditor",
+                    identity=kp.public_key_hex(),
+                    subject_hash=sh,
+                    sign_func=lambda d: base64.b64encode(kp.private_key.sign(d)).decode("ascii"),
+                )
+            ],
+        )
+        env = Envelope(**self._base_args(), attestations=att)
+        rebuilt = Envelope(**env.model_dump(exclude_none=True))
+        assert rebuilt.attestations is not None
+        assert rebuilt.attestations.threshold == 1
+
+    def test_chain_identity_round_trip(self):
+        from epp.chain_identity import ChainIdentity
+
+        env = Envelope(
+            **self._base_args(),
+            chain_identity=ChainIdentity(
+                standard="erc-8004", chain="base", contract="0x" + "a" * 40, token_id="7"
+            ),
+        )
+        rebuilt = Envelope(**env.model_dump(exclude_none=True))
+        assert rebuilt.chain_identity is not None
+        assert rebuilt.chain_identity.token_id == "7"
+
+    def test_revocation_check_round_trip(self):
+        from epp.revocation import RevocationCheck
+
+        env = Envelope(
+            **self._base_args(),
+            revocation_check=RevocationCheck(registry="https://revoke", required=False),
+        )
+        rebuilt = Envelope(**env.model_dump(exclude_none=True))
+        assert rebuilt.revocation_check is not None
+        assert rebuilt.revocation_check.required is False
+
+    def test_v11_fields_default_to_none(self):
+        env = Envelope(**self._base_args())
+        assert env.attestations is None
+        assert env.chain_identity is None
+        assert env.revocation_check is None

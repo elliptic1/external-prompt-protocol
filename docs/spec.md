@@ -112,6 +112,64 @@ An EPP envelope is a JSON object containing:
   - **on_behalf_of** (required, string): Public key hex (64 characters) of the principal being represented.
   - **authorization** (optional, string): Evidence of delegation authority (e.g., signed token, reference ID).
 
+#### v1.1 additive optional fields
+
+The following fields were added as additive optional extensions. **None are
+included in the canonical signing payload (§4.2)** — receivers that don't
+recognize them ignore them, and v1.0 signatures remain valid byte-for-byte.
+
+**integrity** (optional, object): Content hash of the payload.
+  - `alg` (string): one of `sha256`, `sha384`, `sha512`.
+  - `hash` (string): hex digest computed over the canonical payload encoding.
+
+**capabilities** (optional, object): Advisory capability declarations the sender
+requests. Recipients decide whether to honor. Subfields: `filesystem.read[]`,
+`filesystem.write[]`, `network.domains[]`, `network.protocols[]`, `network.ports[]`,
+`actions[]`, `data_access[]`.
+
+**provenance** (optional, object): Ordered chain of attestations with
+`parent_hash` linking. Each entry is independently signed by its attestor.
+See [`epp/provenance.py`](../epp/provenance.py) for shape.
+
+**attestations** (optional, object): Unordered set of independent attestations
+with threshold + required-role semantics.
+  - `threshold` (int ≥ 1): minimum entries that must be present.
+  - `required_roles` (string[]): each role must appear among entries at least once.
+  - `entries` (array): each entry has `role`, `identity` (64-hex pubkey),
+    `timestamp`, `signature`, `subject_hash`, optional `statement`. The
+    signature covers `role || identity || timestamp || statement || subject_hash`.
+
+**payment** (optional, object): x402-style payment request.
+  - `required` (bool), `amount` (decimal string), `currency`, `recipient`,
+    `chain`, `memo` (optional), `expires_at` (optional ISO-8601),
+    `min_confirmations` (int).
+
+**payment_proof** (optional, object): Proof of a previous payment.
+  - `tx_hash`, `chain`, `amount`, `currency`, `payer`, `block`, optional
+    `confirmations` and `timestamp`.
+
+**stake** (optional, object): Reference to an on-chain stake.
+  - `contract`, `chain`, `amount`, `currency`, `staker` (64-hex pubkey),
+    optional `stake_id`, `slash_conditions`. Verification is out of scope —
+    receivers consult chain themselves.
+
+**chain_identity** (optional, object): On-chain identity claim.
+  - `standard` (one of `erc-8004`, `ens`, `lens`, `did`, `custom`),
+    `chain`, optional `contract`, `token_id`, `identifier`,
+    `verification_method` (one of `on-chain-lookup`, `attestation`, `oracle`,
+    `self`). Verification is out of scope.
+
+**revocation_check** (optional, object): Hint to the receiver about where to
+check sender revocation status.
+  - `registry` (https URL or DID), `required` (bool, default true).
+
+When the receiving inbox's trust policy declares `revocation_check_url`, OR
+the envelope carries `revocation_check.required = true`, the inbox MUST consult
+the registry before accepting. Failure or "revoked" outcome is governed by the
+trust policy's `revocation_on_failure` setting (`deny`, `allow`, or `log-only`).
+A new error code, **SENDER_REVOKED**, is returned when the check denies the
+envelope.
+
 ### 3.3 Size Limits
 
 Implementations SHOULD enforce reasonable size limits:
@@ -214,7 +272,9 @@ Implementations MUST maintain a nonce registry to prevent replay attacks:
     "rate_limit": {
       "max_per_hour": 100,
       "max_per_day": 1000
-    }
+    },
+    "revocation_check_url": "https://revoke.example/api",
+    "revocation_on_failure": "deny"
   }
 }
 ```
@@ -266,6 +326,7 @@ Policies are evaluated per (sender, scope) tuple:
 - `POLICY_DENIED`: Policy rejected the envelope
 - `SIZE_EXCEEDED`: Envelope exceeds size limits
 - `RATE_LIMITED`: Sender has exceeded rate limits
+- `SENDER_REVOKED` (v1.1): Sender pubkey is revoked per the configured registry
 
 ## 8. Transport
 

@@ -440,3 +440,116 @@ class TestSigning:
         )
 
         assert valid is False
+
+
+class TestV11BackwardsCompat:
+    """Canonical encoding must be unchanged when v1.1 fields are absent.
+
+    A signature produced for a v1.0-shaped envelope must still verify after
+    the model gained `attestations`, `chain_identity`, and `revocation_check`.
+    The new fields are intentionally NOT in the canonical signing payload.
+    """
+
+    def test_canonical_payload_unchanged_for_v10_inputs(self):
+        canonical = create_canonical_payload(
+            version="1",
+            envelope_id="env-id-1",
+            sender="ab" * 32,
+            recipient="cd" * 32,
+            timestamp="2024-01-01T00:00:00Z",
+            expires_at="2024-01-01T01:00:00Z",
+            nonce="bm9uY2U=",
+            scope="demo",
+            payload={"prompt": "Hello"},
+        )
+        # 12 newline-separated fields per signing.py
+        assert canonical.count(b"\n") == 11
+        assert canonical.startswith(b"1\nenv-id-1\n")
+        assert canonical.endswith(b'\n{"prompt":"Hello"}')
+
+    def test_signature_round_trip_with_v11_envelope_fields(self):
+        """An envelope carrying v1.1 fields still has a valid v1.0 signature."""
+        from datetime import datetime, timedelta, timezone
+        from uuid import uuid4
+        import base64
+
+        from epp.attestations import (
+            Attestations,
+            compute_subject_hash,
+            create_attestation_entry,
+        )
+        from epp.chain_identity import ChainIdentity
+        from epp.crypto.signing import generate_nonce
+        from epp.models import Envelope, Payload
+        from epp.revocation import RevocationCheck
+
+        sender = KeyPair.generate()
+        recipient = KeyPair.generate()
+        auditor = KeyPair.generate()
+
+        now = datetime.now(timezone.utc)
+        payload = Payload(prompt="hello")
+        eid = str(uuid4())
+        ts = now.isoformat().replace("+00:00", "Z")
+        exp = (now + timedelta(minutes=5)).isoformat().replace("+00:00", "Z")
+        nonce = generate_nonce()
+
+        sig = sign_envelope(
+            sender,
+            version="1",
+            envelope_id=eid,
+            sender=sender.public_key_hex(),
+            recipient=recipient.public_key_hex(),
+            timestamp=ts,
+            expires_at=exp,
+            nonce=nonce,
+            scope="demo",
+            payload=payload.model_dump(exclude_none=True),
+        )
+
+        sh = compute_subject_hash(b"x")
+        att = Attestations(
+            threshold=1,
+            required_roles=["auditor"],
+            entries=[
+                create_attestation_entry(
+                    role="auditor",
+                    identity=auditor.public_key_hex(),
+                    subject_hash=sh,
+                    sign_func=lambda d: base64.b64encode(auditor.private_key.sign(d)).decode(
+                        "ascii"
+                    ),
+                )
+            ],
+        )
+
+        env = Envelope(
+            version="1",
+            envelope_id=eid,
+            sender=sender.public_key_hex(),
+            recipient=recipient.public_key_hex(),
+            timestamp=ts,
+            expires_at=exp,
+            nonce=nonce,
+            scope="demo",
+            payload=payload,
+            signature=sig,
+            attestations=att,
+            chain_identity=ChainIdentity(standard="ens", chain="ethereum", identifier="x.eth"),
+            revocation_check=RevocationCheck(registry="https://r"),
+        )
+
+        ok = verify_envelope_signature(
+            PublicKey.from_hex(env.sender),
+            env.signature,
+            version=env.version,
+            envelope_id=env.envelope_id,
+            sender=env.sender,
+            recipient=env.recipient,
+            timestamp=env.timestamp,
+            expires_at=env.expires_at,
+            nonce=env.nonce,
+            scope=env.scope,
+            payload=env.payload.model_dump(exclude_none=True),
+        )
+        assert ok is True

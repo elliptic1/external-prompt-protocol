@@ -9,10 +9,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from epp.attestations import Attestations
 from epp.capabilities import Capabilities
+from epp.chain_identity import ChainIdentity
 from epp.crypto.integrity import Integrity
 from epp.payment import PaymentProof, PaymentRequest, StakeReference
 from epp.provenance import Provenance
+from epp.revocation import RevocationCheck
 
 
 class Payload(BaseModel):
@@ -108,6 +111,18 @@ class Envelope(BaseModel):
     stake: Optional[StakeReference] = Field(
         default=None,
         description="Reference to on-chain stake for reputation (v1.1)",
+    )
+    attestations: Optional[Attestations] = Field(
+        default=None,
+        description="Multi-party attestation set with threshold + required_roles (v1.1)",
+    )
+    chain_identity: Optional[ChainIdentity] = Field(
+        default=None,
+        description="On-chain identity claim (ERC-8004, ENS, Lens, DID, ...) (v1.1)",
+    )
+    revocation_check: Optional[RevocationCheck] = Field(
+        default=None,
+        description="Where receivers can consult sender revocation status (v1.1)",
     )
 
     @field_validator("envelope_id")
@@ -248,7 +263,7 @@ class ErrorDetail(BaseModel):
         ...,
         pattern="^(INVALID_FORMAT|UNSUPPORTED_VERSION|WRONG_RECIPIENT|EXPIRED|"
         "INVALID_SIGNATURE|REPLAY_DETECTED|UNTRUSTED_SENDER|POLICY_DENIED|"
-        "SIZE_EXCEEDED|RATE_LIMITED)$",
+        "SIZE_EXCEEDED|RATE_LIMITED|SENDER_REVOKED)$",
     )
     message: str
 

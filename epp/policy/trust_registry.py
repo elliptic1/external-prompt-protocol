@@ -6,9 +6,11 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from epp.revocation import SUPPORTED_FAILURE_MODES
 
 
 class RateLimit(BaseModel):
@@ -28,6 +30,23 @@ class SenderPolicy(BaseModel):
         default=10 * 1024 * 1024, ge=0, description="Maximum envelope size in bytes"
     )
     rate_limit: RateLimit = Field(default_factory=RateLimit)
+    revocation_check_url: Optional[str] = Field(
+        default=None,
+        description="If set, inbox MUST consult this URL before accepting (v1.1)",
+    )
+    revocation_on_failure: Literal["deny", "allow", "log-only"] = Field(
+        default="deny",
+        description="What to do when revocation lookup fails or returns revoked (v1.1)",
+    )
+
+    @field_validator("revocation_on_failure")
+    @classmethod
+    def validate_failure_mode(cls, v: str) -> str:
+        if v not in SUPPORTED_FAILURE_MODES:
+            raise ValueError(
+                f"revocation_on_failure must be one of {SUPPORTED_FAILURE_MODES}, got {v}"
+            )
+        return v
 
     def allows_scope(self, scope: str) -> bool:
         """Check if a scope is allowed by this policy."""

@@ -2,6 +2,29 @@
 
 Based on feature requests from Moltbook agent community (2026-02-08).
 
+> **Status (2026-04-28): All eight features implemented.** Protocol version stays
+> at `"1"` — these are additive optional fields. Receivers that don't recognize
+> them ignore them. Existing v1.0 envelopes verify byte-for-byte identically
+> because the canonical signing payload is unchanged.
+>
+> | # | Feature | Module | Envelope field | CLI | Tests |
+> |---|---|---|---|---|---|
+> | 1.1 | Content hashing | `epp/crypto/integrity.py` | `integrity` | `--hash`, `--hash-alg` | `tests/test_integrity.py` |
+> | 1.2 | Capability declarations | `epp/capabilities.py` | `capabilities` | `--capability-*` | `tests/test_capabilities.py` |
+> | 2.1 | Provenance chain | `epp/provenance.py` | `provenance` | `eppctl provenance add/verify` | `tests/test_provenance.py` |
+> | 2.2 | Multi-party attestation | `epp/attestations.py` | `attestations` | `eppctl attestation add/verify` | `tests/test_attestations.py` |
+> | 3.1 | Payment instructions | `epp/payment.py` | `payment` + `payment_proof` | `--payment-*` | `tests/test_payment.py` |
+> | 3.2 | Stake reference | `epp/payment.py` | `stake` | (declarative only) | `tests/test_payment.py` |
+> | 4.1 | Chain identity | `epp/chain_identity.py` | `chain_identity` | `--chain-identity-*` | `tests/test_chain_identity.py` |
+> | 4.2 | Key revocation | `epp/revocation.py` + trust registry | `revocation_check` | envelope: `--revocation-*`; trust: `--revocation-check-url`, `--revocation-on-failure` | `tests/test_revocation.py` |
+>
+> A pipeline step `SENDER_REVOKED` was added to the inbox processor between the
+> trust-registry lookup and scope-policy steps. It fires only when the trust
+> policy declares a `revocation_check_url` or the envelope itself carries a
+> `revocation_check` with `required=True`. The default `RevocationLookup` is a
+> stub that returns "not revoked" — production deployments wire in their own
+> client by passing `revocation_lookup=...` to `InboxProcessor`.
+
 ## Overview
 
 EPP v1.0 established the foundation. v1.1 adds features agents are actually asking for:

@@ -4,6 +4,7 @@ Core inbox envelope processing logic.
 
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -21,6 +22,7 @@ from ..models import (
 from ..policy.nonce_registry import NonceRegistry
 from ..policy.rate_limiter import RateLimiter
 from ..policy.trust_registry import TrustRegistry
+from ..revocation import RevocationLookup
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ class InboxProcessor:
         nonce_registry: NonceRegistry,
         rate_limiter: RateLimiter,
         executor: Executor,
+        revocation_lookup: Optional[RevocationLookup] = None,
     ):
         """
         Initialize inbox processor.
@@ -47,12 +50,16 @@ class InboxProcessor:
             nonce_registry: Nonce registry for replay protection
             rate_limiter: Rate limiter for enforcement
             executor: Executor for processing accepted envelopes
+            revocation_lookup: Optional revocation registry client (v1.1).
+                Defaults to a stub that returns "not revoked" — only matters
+                when a sender's policy sets `revocation_check_url`.
         """
         self.recipient_key = recipient_public_key_hex.lower()
         self.trust_registry = trust_registry
         self.nonce_registry = nonce_registry
         self.rate_limiter = rate_limiter
         self.executor = executor
+        self.revocation_lookup = revocation_lookup or RevocationLookup()
 
     def process_envelope(self, envelope_data: dict) -> Receipt:
         """
@@ -160,6 +167,53 @@ class InboxProcessor:
                 "UNTRUSTED_SENDER",
                 "Sender not in trust registry",
             )
+
+        # Step 7b (v1.1): Revocation check
+        # Triggered when the sender's policy declares a registry URL, OR when
+        # the envelope itself carries a revocation_check with required=True.
+        policy_url = trust_entry.policy.revocation_check_url
+        envelope_check = envelope.revocation_check
+        on_failure = trust_entry.policy.revocation_on_failure
+        registry_url = policy_url or (
+            envelope_check.registry if (envelope_check and envelope_check.required) else None
+        )
+
+        if registry_url:
+            try:
+                status = self.revocation_lookup.lookup(envelope.sender, registry_url)
+            except Exception as e:
+                logger.error(f"Revocation lookup raised: {e}")
+                if on_failure == "deny":
+                    return self._error_receipt(
+                        envelope_id,
+                        received_at,
+                        "SENDER_REVOKED",
+                        f"Revocation lookup failed: {e}",
+                    )
+                if on_failure == "log-only":
+                    logger.warning(
+                        f"Revocation lookup failed (log-only) for "
+                        f"{envelope.sender[:16]}...: {e}"
+                    )
+            else:
+                if status.revoked:
+                    if on_failure == "deny":
+                        logger.warning(
+                            f"Sender {envelope.sender[:16]}... is revoked "
+                            f"per {status.source}: {status.reason}"
+                        )
+                        return self._error_receipt(
+                            envelope_id,
+                            received_at,
+                            "SENDER_REVOKED",
+                            f"Sender revoked: {status.reason or 'unspecified'}",
+                        )
+                    if on_failure == "log-only":
+                        logger.warning(
+                            f"Sender {envelope.sender[:16]}... is revoked "
+                            f"(log-only): {status.reason}"
+                        )
+                    # on_failure == "allow": fall through
 
         # Step 8: Apply policy - scope
         if not trust_entry.policy.allows_scope(envelope.scope):
